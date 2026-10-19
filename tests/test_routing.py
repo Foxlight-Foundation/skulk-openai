@@ -240,3 +240,10 @@ def test_caller_cannot_weaken_host_authority(
             now=1000.0,
         )
     assert reason in failure.value.rejected[0].reasons
+
+
+def test_astral_unicode_bound_matches_managed_control_encoding() -> None:
+    with pytest.raises(ValidationError, match="byte bound"):
+        GenerationRequest(
+            messages=tuple(Message(role="user", content="🦊" * 3000) for _ in range(2))
+        )

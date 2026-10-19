@@ -1,5 +1,6 @@
 """Strict, bounded draft text-generation semantics shared by reference providers."""
 
+import json
 from typing import Annotated, Literal, Self, final
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -37,7 +38,15 @@ class GenerationRequest(FrozenContract):
     @model_validator(mode="after")
     def bounded_encoding(self) -> Self:
         """Reserve room beneath the managed control-envelope ceiling."""
-        if len(self.model_dump_json().encode()) > MAX_REQUEST_BYTES:
+        # Match the SDK control encoder: astral characters expand to surrogate
+        # escapes with ensure_ascii=True, so UTF-8 size alone is insufficient.
+        encoded = json.dumps(
+            self.model_dump(mode="json"),
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+        ).encode()
+        if len(encoded) > MAX_REQUEST_BYTES:
             raise ValueError("request exceeds reference byte bound")
         return self
 
