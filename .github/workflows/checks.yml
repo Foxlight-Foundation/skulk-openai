@@ -1,0 +1,30 @@
+name: Reference checks
+on:
+  pull_request:
+  push:
+    branches: [initiative/openai-provider]
+permissions:
+  contents: read
+jobs:
+  core:
+    name: Core reference (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.12.23"
+      - run: uv sync --frozen
+      - run: uv run basedpyright
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run pytest
+      - run: uv run skulk-openai-demo
+      - run: uv build
+      # SDK examples are tested explicitly with licensed SDK access. These jobs
+      # intentionally claim only core checks, not managed/installed qualification.
