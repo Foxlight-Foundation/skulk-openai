@@ -27,7 +27,9 @@ Before every implementation commit run:
     git diff --cached --check
 
 Managed SDK tests are a separate explicit suite. Missing SDK access must be
-reported as a gate, never silently treated as a passing managed test. Install
+reported as a gate, never silently treated as a passing managed test. Also run
+`uv run basedpyright examples tests_managed` and `uv run pytest tests_managed`
+when the licensed SDK is available; core CI covers only `src` and `tests`. Install
 licensed packages only in this repository's isolated environment.
 
 Use ready PRs and complete the review/check loop. Apply the Foxlight severity
