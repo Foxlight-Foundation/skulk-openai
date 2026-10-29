@@ -12,7 +12,12 @@ from skulk_inference_reference.contracts import (
     GenerationRequest,
     Message,
 )
-from skulk_openai.provider import ProviderClient, ProviderFailure
+from skulk_openai.provider import (
+    CatalogCache,
+    ProviderClient,
+    ProviderFailure,
+    refresh_cached_catalog,
+)
 from skulk_openai.responses import event_bytes
 from tests.test_sessions import connect, setup
 
@@ -182,3 +187,33 @@ async def test_catalog_is_finite_and_validated(tmp_path: Path, raw: bytes) -> No
     with pytest.raises(ProviderFailure, match="invalid_catalog"):
         await client.catalog()
     assert len(api.calls) == 1
+
+
+async def test_owner_metadata_refresh_preserves_cache_on_failure_without_inference(
+    tmp_path: Path,
+) -> None:
+    manager, issuer, clock = setup(tmp_path)
+    await connect(manager, issuer)
+    api = API()
+    client = ProviderClient(
+        manager, transport=httpx.MockTransport(api.handle), clock=clock
+    )
+    assert await refresh_cached_catalog(client)
+    original = CatalogCache(manager).read()
+    assert original is not None
+    api.status = 503
+    clock.now += 61
+    assert not await refresh_cached_catalog(client)
+    assert CatalogCache(manager).read() == original
+    assert original.expires_at <= clock()
+    assert len(api.calls) == 2 and client.requests_started == 0
+
+
+async def test_identity_only_metadata_worker_sends_nothing(tmp_path: Path) -> None:
+    manager, issuer, _ = setup(tmp_path)
+    issuer.scopes = "openid profile email"
+    await connect(manager, issuer)
+    api = API()
+    client = ProviderClient(manager, transport=httpx.MockTransport(api.handle))
+    assert not await refresh_cached_catalog(client)
+    assert api.calls == [] and CatalogCache(manager).read() is None

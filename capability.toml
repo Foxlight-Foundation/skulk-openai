@@ -1,0 +1,10 @@
+package = "skulk_openai"
+package_root = "src/skulk_openai"
+entry = "skulk_openai.managed"
+validator = "skulk_openai.managed:validate_manifest"
+
+[entrypoints]
+__setup__ = "skulk_openai.setup:main"
+
+[data_files]
+LICENSE = "LICENSE"

@@ -10,7 +10,7 @@ In this repository's isolated development environment, install the licensed SDK
 package you obtained, then explicitly run:
 
 ```sh
-uv run basedpyright examples tests_managed
+uv run basedpyright src/skulk_openai/managed.py examples tests_managed
 uv run pytest tests_managed
 ```
 

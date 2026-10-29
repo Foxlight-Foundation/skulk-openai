@@ -33,6 +33,8 @@ from skulk_capability_sdk.streams import StreamEnd, StreamFrame, read_packet
 from skulk_capability_sdk.wire import read_message, write_message
 
 from examples.managed_child import descriptors
+from skulk_openai.managed import Configuration as AccountConfiguration
+from skulk_openai.managed import descriptors as account_descriptors
 
 pytestmark = pytest.mark.managed
 _REPO = Path(__file__).resolve().parents[1]
@@ -56,6 +58,8 @@ async def managed_child(
     *,
     enabled: bool = True,
     delay_seconds: float = 0.0,
+    guarded: bool = False,
+    state_directory: Path | None = None,
 ) -> AsyncGenerator[Child]:
     """Launch one real subprocess with private temporary Unix sockets and FD IPC."""
     connections: asyncio.Queue[tuple[asyncio.StreamReader, asyncio.StreamWriter]] = (
@@ -77,12 +81,18 @@ async def managed_child(
             lambda reader, writer: media.put_nowait((reader, writer)), root / "stream"
         )
         manifest = Manifest(
-            bundle_id=f"reference.{profile}",
+            bundle_id="reference.openai.mock" if guarded else f"reference.{profile}",
             bundle_version="0.1.0",
             executable=sys.executable,
             executable_sha256=_EXECUTABLE_DIGEST,
-            arguments=(str(entry),),
-            descriptors=descriptors(profile),
+            arguments=("-m", "skulk_openai.managed") if guarded else (str(entry),),
+            descriptors=account_descriptors(mock=True)
+            if guarded
+            else descriptors(profile),
+            configuration_schema=AccountConfiguration.model_json_schema()
+            if guarded
+            else None,
+            effect="governed" if guarded else "read",
         )
         startup = Startup(
             socket=str(root / "control"),
@@ -93,6 +103,11 @@ async def managed_child(
             transport_id="synthetic-node",
             manifest=manifest,
             configuration={
+                "inference_enabled": enabled,
+                "state_directory": str(state_directory),
+            }
+            if guarded
+            else {
                 "profile": profile,
                 "enabled": enabled,
                 "delay_seconds": delay_seconds,
@@ -106,7 +121,7 @@ async def managed_child(
                 record.seek(0)
                 process = await asyncio.create_subprocess_exec(
                     sys.executable,
-                    str(entry),
+                    *manifest.arguments,
                     "--config-fd",
                     str(record.fileno()),
                     pass_fds=(record.fileno(),),

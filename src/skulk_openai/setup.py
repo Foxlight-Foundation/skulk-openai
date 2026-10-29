@@ -16,7 +16,7 @@ from skulk_inference_reference.contracts import GenerationRequest, Message
 from .admission import GrantStore
 from .auth_contracts import AuthFailure, ConnectionStatus
 from .caller import write_credential
-from .credentials import CredentialStore
+from .credentials import CredentialStore, default_state_directory
 from .oauth import AuthorizationAttempt, OAuthClient
 from .provider import CatalogCache, ProviderClient, ProviderFailure
 from .sessions import SessionManager
@@ -291,7 +291,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Owner-local OpenAI capability account"
     )
-    parser.add_argument("--state-dir", type=Path, default=Path.cwd() / "openai-account")
+    parser.add_argument("--state-dir", type=Path, default=default_state_directory())
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("status")
     commands.add_parser("disconnect")

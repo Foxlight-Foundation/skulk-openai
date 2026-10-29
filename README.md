@@ -11,13 +11,14 @@ It runs locally without a model, GPU, account or fleet lease.
 The session foundation also provides explicit [owner-local account
 setup](docs/account-setup.md), protected credentials, verified identity, serialized
 refresh, disconnect fencing and account-bound catalog/Responses primitives. It is
-separate from the mock managed-child
-example and does not enable live fabric calls. Automated tests need no account.
+separate from the older mock managed-child example. Automated tests need no account.
 
 The [caller-grant experiment](docs/caller-grants.md) adds capability-owned signing
 keys, finite admission budgets and durable replay fences. Its standalone
 `InferenceCapability` boundary enforces hard policy before the HTTP client.
-Actual owner/core transport and signed installed qualification remain open.
+The [managed account child](docs/managed-capability.md) consumes public SDK
+interfaces and has been exercised through an isolated actual owner/core adapter.
+Signed installation, real-provider and distributed qualification remain open.
 
 ## Try the offline example
 
