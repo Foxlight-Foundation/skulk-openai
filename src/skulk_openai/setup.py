@@ -39,7 +39,9 @@ class CallbackListener:
         self._launched = False
         self._callback_lock = asyncio.Lock()
 
-    async def start(self, *, registration_id: str | None = None) -> None:
+    async def start(
+        self, *, registration_id: str | None = None, request_plan_consent: bool = False
+    ) -> None:
         """Start the listener before creating an authorization request."""
         self._future = asyncio.get_running_loop().create_future()
         self.server = await asyncio.start_server(
@@ -51,7 +53,9 @@ class CallbackListener:
         self.launch_url = origin + self._launch_path
         try:
             self.attempt = await self.manager.begin(
-                self.redirect_uri, registration_id=registration_id
+                self.redirect_uri,
+                registration_id=registration_id,
+                request_plan_consent=request_plan_consent,
             )
         except BaseException:
             await self.close()
@@ -275,7 +279,10 @@ async def run(arguments: argparse.Namespace) -> int:
     if registration_id is None and selected is not None:
         registration_id = selected.registration_id
     listener = CallbackListener(manager)
-    await listener.start(registration_id=registration_id)
+    await listener.start(
+        registration_id=registration_id,
+        request_plan_consent=bool(arguments.request_plan_consent),
+    )
     print("Continue with ChatGPT: " + listener.launch_url, flush=True)
     if not arguments.no_browser:
         await asyncio.to_thread(webbrowser.open, listener.launch_url)
@@ -314,6 +321,7 @@ def main() -> None:
     selection.add_argument("--new-account", action="store_true")
     selection.add_argument("--registration")
     connect.add_argument("--no-browser", action="store_true")
+    connect.add_argument("--request-plan-consent", action="store_true")
     arguments = parser.parse_args()
     try:
         result = asyncio.run(run(arguments))

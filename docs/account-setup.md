@@ -40,6 +40,18 @@ sign-in succeeded but `chatgpt.tokens.use.direct` was not granted. `authorized`
 means an unexpired local token has that scope; it does not prove model access,
 remaining quota, billing policy, caller authority or an active server session.
 
+To explicitly request plan permission again after declining it, run
+`connect --request-plan-consent`. It reuses the selected issued client and requests
+the complete scopes with OAuth `prompt=consent`. Ordinary reconnection does not
+force consent. The newer `force_reconsent` parameter is not used without upstream
+deployment confirmation. See the official [permission recovery
+contract](https://developers.openai.com/siwc/token-sharing-open-source/errors-and-recovery).
+
+Documented unusable-refresh-token errors clear only the generation that attempted
+the refresh and require a new sign-in; further calls cannot keep submitting that
+token. Invalid-client and infrastructure failures preserve credentials for
+diagnosis/recovery. An arbitrary HTTP failure is not proof of remote revocation.
+
 Disconnect fences new admission and pending sign-ins before clearing local
 tokens. It then attempts renewable-session revocation with the retained in-memory
 token. A failed remote request reports that revocation was not confirmed; use

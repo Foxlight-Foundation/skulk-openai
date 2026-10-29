@@ -57,6 +57,7 @@ class Issuer:
         self.claim_overrides: dict[str, object] = {}
         self.requests: list[httpx.Request] = []
         self.refresh_identity = False
+        self.refresh_error = "invalid_grant"
 
     def identity(self, client_id: str) -> str:
         """Sign a generated identity; no trusted field comes from callback email."""
@@ -130,7 +131,7 @@ class Issuer:
         if self.failure == "refresh":
             return httpx.Response(503, json={"message": "private synthetic detail"})
         if self.failure == "revoked":
-            return httpx.Response(400, json={"error": "invalid_grant"})
+            return httpx.Response(400, json={"error": self.refresh_error})
         assert form["refresh_token"] == [self.refresh_value]
         self.refresh_value = f"synthetic-refresh-{self.refresh_calls + 1}"
         identity = (
@@ -271,18 +272,33 @@ async def test_transient_refresh_failure_preserves_credentials(tmp_path: Path) -
     assert await manager.access_token(status.registration_id, status.generation)
 
 
-async def test_revoked_refresh_withdraws_tokens(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "code",
+    [
+        "invalid_grant",
+        "invalid_refresh_token",
+        "token_expired",
+        "refresh_token_expired",
+        "refresh_token_invalidated",
+        "refresh_token_reused",
+    ],
+)
+async def test_revoked_refresh_withdraws_tokens(tmp_path: Path, code: str) -> None:
     manager, issuer, clock = setup(tmp_path)
     await connect(manager, issuer)
     status = await manager.status()
     assert status.registration_id is not None and status.generation is not None
     clock.now += 3550
     issuer.failure = "revoked"
+    issuer.refresh_error = code
     with pytest.raises(AuthFailure, match="session_revoked"):
         await manager.access_token(status.registration_id, status.generation)
     assert (await manager.status()).state == "disconnected"
     saved = manager.store.load()
     assert saved is not None and saved.tokens is None
+    with pytest.raises(AuthFailure, match="sign_in_required"):
+        await manager.access_token(status.registration_id, status.generation)
+    assert issuer.refresh_calls == 1
 
 
 async def test_disconnect_fences_inflight_refresh(tmp_path: Path) -> None:

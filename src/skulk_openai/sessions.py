@@ -63,6 +63,7 @@ class SessionManager:
         redirect_uri: str,
         *,
         registration_id: str | None = None,
+        request_plan_consent: bool = False,
     ) -> AuthorizationAttempt:
         """Create owner-local browser state, keeping the existing connection intact."""
         selected = None
@@ -75,6 +76,7 @@ class SessionManager:
             redirect_uri=redirect_uri,
             epoch=await asyncio.to_thread(self.store.epoch),
             selected=selected,
+            request_plan_consent=request_plan_consent,
         )
 
     def _tokens(
