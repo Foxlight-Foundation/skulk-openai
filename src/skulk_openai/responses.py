@@ -1,5 +1,6 @@
 """Bounded Responses event adaptation against an injected, credential-free client."""
 
+import asyncio
 import json
 from collections.abc import AsyncGenerator
 from contextlib import aclosing
@@ -89,11 +90,16 @@ class MockResponsesAdapter:
     authentication, retries and network requests are outside this first slice.
     """
 
-    def __init__(self, transport: httpx.AsyncBaseTransport) -> None:
+    def __init__(
+        self, transport: httpx.AsyncBaseTransport, *, duration_seconds: float = 30
+    ) -> None:
         """Retain an explicit mock; never read account credentials or environment."""
         if not isinstance(transport, httpx.MockTransport):
             raise TypeError("the reference accepts only an explicit mock transport")
+        if not 0 < duration_seconds <= 30:
+            raise ValueError("stream duration must be within thirty seconds")
         self._transport = transport
+        self._duration_seconds = duration_seconds
 
     async def generate(
         self,
@@ -106,8 +112,9 @@ class MockResponsesAdapter:
         Caller cancellation propagates without being converted into success or
         automatically replaying a request. Closing the iterator closes HTTP.
         """
-        terminal = False
+        terminal: GenerationEvent | None = None
         characters = 0
+        deadline = asyncio.get_running_loop().time() + self._duration_seconds
         try:
             async with httpx.AsyncClient(
                 transport=self._transport,
@@ -131,7 +138,20 @@ class MockResponsesAdapter:
                     if media_type != "text/event-stream":
                         raise InvalidResponseStream("expected event stream")
                     async with aclosing(server_events(response)) as events:
-                        async for event in events:
+                        while True:
+                            try:
+                                remaining = deadline - asyncio.get_running_loop().time()
+                                if remaining <= 0:
+                                    raise TimeoutError
+                                # Bound reads, never a consumer suspended at yield.
+                                event = await asyncio.wait_for(
+                                    anext(events),
+                                    min(remaining, 0.5) if terminal else remaining,
+                                )
+                            except StopAsyncIteration:
+                                break
+                            if terminal is not None:
+                                raise InvalidResponseStream("event follows terminal")
                             event_type = event.get("type")
                             if event_type == "response.output_text.delta":
                                 delta = event.get("delta")
@@ -144,25 +164,19 @@ class MockResponsesAdapter:
                                     )
                                     return
                                 yield GenerationEvent(kind="text", text=delta)
+                            elif event_type == "response.completed":
+                                terminal = GenerationEvent(kind="completed")
                             elif event_type in (
-                                "response.completed",
                                 "response.failed",
                                 "response.incomplete",
                                 "error",
                             ):
-                                if terminal:
-                                    raise InvalidResponseStream("duplicate terminal")
-                                terminal = True
-                                if event_type == "response.completed":
-                                    yield GenerationEvent(kind="completed")
-                                else:
-                                    code: Literal["incomplete", "upstream_failed"] = (
-                                        "incomplete"
-                                        if event_type == "response.incomplete"
-                                        else "upstream_failed"
-                                    )
-                                    yield GenerationEvent(kind="failed", error=code)
-                                return
+                                code: Literal["incomplete", "upstream_failed"] = (
+                                    "incomplete"
+                                    if event_type == "response.incomplete"
+                                    else "upstream_failed"
+                                )
+                                terminal = GenerationEvent(kind="failed", error=code)
                             elif event_type not in (
                                 "response.created",
                                 "response.in_progress",
@@ -173,9 +187,8 @@ class MockResponsesAdapter:
                                 "response.output_item.done",
                             ):
                                 raise InvalidResponseStream("unsupported stream event")
-            if not terminal:
-                yield GenerationEvent(kind="failed", error="interrupted")
-        except (InvalidResponseStream, httpx.HTTPError, UnicodeError):
+            yield terminal or GenerationEvent(kind="failed", error="interrupted")
+        except (InvalidResponseStream, httpx.HTTPError, UnicodeError, TimeoutError):
             yield GenerationEvent(kind="failed", error="invalid_stream")
 
 
