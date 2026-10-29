@@ -236,3 +236,37 @@ async def test_real_network_transport_is_refused() -> None:
             MockResponsesAdapter(transport)
     finally:
         await transport.aclose()
+
+
+@pytest.mark.parametrize(
+    "trailing",
+    [
+        {"type": "response.completed"},
+        {"type": "response.failed"},
+        {"type": "response.output_text.delta", "delta": "after completion"},
+        {"type": "unsupported.event"},
+    ],
+)
+async def test_terminal_is_withheld_until_trailing_events_are_validated(
+    trailing: dict[str, JsonValue],
+) -> None:
+    stream = Fragments(
+        (event_bytes({"type": "response.completed"}) + event_bytes(trailing),)
+    )
+    events = [
+        item
+        async for item in adapter_for(stream).generate(request(), model="synthetic")
+    ]
+    assert len(events) == 1 and events[0].error == "invalid_stream"
+    assert stream.closed
+
+
+async def test_terminal_without_eof_has_a_bounded_failure() -> None:
+    stream = Fragments((event_bytes({"type": "response.completed"}),), stall=True)
+    async with asyncio.timeout(2):
+        events = [
+            item
+            async for item in adapter_for(stream).generate(request(), model="synthetic")
+        ]
+    assert len(events) == 1 and events[0].error == "invalid_stream"
+    assert stream.closed

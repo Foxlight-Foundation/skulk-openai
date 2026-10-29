@@ -39,7 +39,10 @@ triggerability 0-2. Impact 1 is informational. Fix scores >3.5; reply with the
 rationale for deferring lower scores and resolve handled threads. Merge the
 exact checked head into the initiative branch after checks and review pass.
 
-This slice must remain credential-free and use mock transports only. Do not
-contact provider accounts, launch a default Skulk node, acquire a fleet lease,
-or install a service as part of these tests. Caller authority and protected
-credential handling must be qualified before real-account fabric admission.
+Automated tests must remain credential-free and use mock upstream transports.
+Owner-local account setup may contact the fixed official issuer only after an
+explicit operator action. Never sign in, read another tool's tokens, contact a
+real provider account or incur inference usage during unattended development.
+Caller authority and protected credential handling must be qualified before
+real-account fabric admission. Use only authorized isolated fleet leases under
+normal coordination rules; never launch a default node into a shared fleet.

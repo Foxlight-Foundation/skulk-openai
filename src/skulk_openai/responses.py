@@ -1,5 +1,6 @@
 """Bounded Responses event adaptation against an injected, credential-free client."""
 
+import asyncio
 import json
 from collections.abc import AsyncGenerator
 from contextlib import aclosing
@@ -106,76 +107,97 @@ class MockResponsesAdapter:
         Caller cancellation propagates without being converted into success or
         automatically replaying a request. Closing the iterator closes HTTP.
         """
-        terminal = False
+        terminal: GenerationEvent | None = None
         characters = 0
         try:
-            async with httpx.AsyncClient(
-                transport=self._transport,
-                trust_env=False,
-                timeout=5.0,
-            ) as client:
-                async with client.stream(
-                    "POST",
-                    "https://mock-openai.invalid/v1/responses",
-                    json={
-                        "model": model,
-                        "store": False,
-                        "stream": True,
-                        "input": [message.model_dump() for message in request.messages],
-                    },
-                ) as response:
-                    if response.status_code != 200:
-                        yield GenerationEvent(kind="failed", error="upstream_failed")
-                        return
-                    media_type = response.headers.get("content-type", "").split(";")[0]
-                    if media_type != "text/event-stream":
-                        raise InvalidResponseStream("expected event stream")
-                    async with aclosing(server_events(response)) as events:
-                        async for event in events:
-                            event_type = event.get("type")
-                            if event_type == "response.output_text.delta":
-                                delta = event.get("delta")
-                                if not isinstance(delta, str) or not delta:
-                                    raise InvalidResponseStream("invalid text delta")
-                                characters += len(delta)
-                                if characters > request.maximum_output_characters:
-                                    yield GenerationEvent(
-                                        kind="failed", error="output_limit"
+            async with asyncio.timeout(30.0):
+                async with httpx.AsyncClient(
+                    transport=self._transport,
+                    trust_env=False,
+                    timeout=5.0,
+                ) as client:
+                    async with client.stream(
+                        "POST",
+                        "https://mock-openai.invalid/v1/responses",
+                        json={
+                            "model": model,
+                            "store": False,
+                            "stream": True,
+                            "input": [
+                                message.model_dump() for message in request.messages
+                            ],
+                        },
+                    ) as response:
+                        if response.status_code != 200:
+                            yield GenerationEvent(
+                                kind="failed", error="upstream_failed"
+                            )
+                            return
+                        media_type = response.headers.get("content-type", "").split(
+                            ";"
+                        )[0]
+                        if media_type != "text/event-stream":
+                            raise InvalidResponseStream("expected event stream")
+                        async with aclosing(server_events(response)) as events:
+                            while True:
+                                try:
+                                    if terminal is None:
+                                        event = await anext(events)
+                                    else:
+                                        # Hold success for bounded EOF; reject any
+                                        # contradictory trailing event.
+                                        event = await asyncio.wait_for(
+                                            anext(events), 0.5
+                                        )
+                                except StopAsyncIteration:
+                                    break
+                                if terminal is not None:
+                                    raise InvalidResponseStream(
+                                        "event follows terminal"
                                     )
-                                    return
-                                yield GenerationEvent(kind="text", text=delta)
-                            elif event_type in (
-                                "response.completed",
-                                "response.failed",
-                                "response.incomplete",
-                                "error",
-                            ):
-                                if terminal:
-                                    raise InvalidResponseStream("duplicate terminal")
-                                terminal = True
-                                if event_type == "response.completed":
-                                    yield GenerationEvent(kind="completed")
-                                else:
+                                event_type = event.get("type")
+                                if event_type == "response.output_text.delta":
+                                    delta = event.get("delta")
+                                    if not isinstance(delta, str) or not delta:
+                                        raise InvalidResponseStream(
+                                            "invalid text delta"
+                                        )
+                                    characters += len(delta)
+                                    if characters > request.maximum_output_characters:
+                                        yield GenerationEvent(
+                                            kind="failed", error="output_limit"
+                                        )
+                                        return
+                                    yield GenerationEvent(kind="text", text=delta)
+                                elif event_type == "response.completed":
+                                    terminal = GenerationEvent(kind="completed")
+                                elif event_type in (
+                                    "response.failed",
+                                    "response.incomplete",
+                                    "error",
+                                ):
                                     code: Literal["incomplete", "upstream_failed"] = (
                                         "incomplete"
                                         if event_type == "response.incomplete"
                                         else "upstream_failed"
                                     )
-                                    yield GenerationEvent(kind="failed", error=code)
-                                return
-                            elif event_type not in (
-                                "response.created",
-                                "response.in_progress",
-                                "response.output_item.added",
-                                "response.content_part.added",
-                                "response.output_text.done",
-                                "response.content_part.done",
-                                "response.output_item.done",
-                            ):
-                                raise InvalidResponseStream("unsupported stream event")
-            if not terminal:
-                yield GenerationEvent(kind="failed", error="interrupted")
-        except (InvalidResponseStream, httpx.HTTPError, UnicodeError):
+                                    terminal = GenerationEvent(
+                                        kind="failed", error=code
+                                    )
+                                elif event_type not in (
+                                    "response.created",
+                                    "response.in_progress",
+                                    "response.output_item.added",
+                                    "response.content_part.added",
+                                    "response.output_text.done",
+                                    "response.content_part.done",
+                                    "response.output_item.done",
+                                ):
+                                    raise InvalidResponseStream(
+                                        "unsupported stream event"
+                                    )
+            yield terminal or GenerationEvent(kind="failed", error="interrupted")
+        except (InvalidResponseStream, httpx.HTTPError, UnicodeError, TimeoutError):
             yield GenerationEvent(kind="failed", error="invalid_stream")
 
 

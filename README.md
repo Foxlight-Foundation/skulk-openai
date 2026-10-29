@@ -8,6 +8,11 @@ routing, a credential-free OpenAI Responses adapter, an independent fixture
 provider, and a managed-child example using the public capability SDK interface.
 It runs locally without a model, GPU, account or fleet lease.
 
+The session foundation also provides explicit [owner-local account
+setup](docs/account-setup.md), protected credentials, verified identity, serialized
+refresh and disconnect fencing. It is separate from the mock managed-child
+example and does not enable live fabric calls. Automated tests need no account.
+
 ## Try the offline example
 
 Install Python 3.13 and [uv](https://docs.astral.sh/uv/), then:
@@ -42,7 +47,7 @@ separately licensed SDK and does not claim those managed checks.
 
 ## Boundaries
 
-The adapter deliberately uses `httpx.MockTransport`; it has no live authentication,
+The inference adapter deliberately uses `httpx.MockTransport`; it has no live
 endpoint configuration or network mode. The shared contract is a draft reference,
 not an adopted SDK standard. Tool calls, larger contexts and additional modalities
 remain future work. See [contract](docs/contract.md) and
@@ -51,7 +56,8 @@ remain future work. See [contract](docs/contract.md) and
 Synthetic grants are trusted in-process test inputs, not authenticated production
 caller authority. Real accounts must not be made callable until protected
 credentials and caller authority are enforced across fabric entry paths. Actual
-OAuth, publication and installed qualification remain open work.
+account consent, live inference, publication and installed qualification remain
+open work.
 
 This reference is Apache-2.0 licensed. The capability SDK has its own license and
 is not included here. OpenAI is a separate service; this repository is not an

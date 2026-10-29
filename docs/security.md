@@ -1,9 +1,11 @@
 # Security boundaries of this slice
 
-All provider state and grants here are synthetic. No code exchanges, stores or
-refreshes provider tokens, reads environment credentials, signs into an account,
-starts a Skulk node or installs a service. HTTP requests use explicit mock
-transports and disable environment proxy/configuration inheritance.
+All automated provider tests and grants here are synthetic. The inference
+adapter uses an explicit mock transport. The separate owner-local account setup
+command implements OAuth and protected session storage; only an explicit
+operator action enables authentication HTTP. Tests never sign into an account,
+read environment credentials, start a Skulk node or install a service. All HTTP
+clients disable environment proxy/configuration inheritance.
 
 Installing a capability, discovering an offer, account consent and caller
 invocation authority are separate events. This slice tests that untrusted request
@@ -17,10 +19,11 @@ format or a guarantee that remote revocation stops already-running upstream work
 Offer labels are assertions under host trust; a marker or advertised domain is
 not attestation. An algorithm cannot infer private processing from a provider name.
 
-Before any real-account integration, settle protected host-local credential
-access/rotation, OAuth validation and account/workspace binding, caller authority
-across every entry path, bounded usage enforcement, outbound endpoint policy and
-revocation/admission races. No provider token belongs in descriptors, replicated
+The [session foundation](account-setup.md) implements protected host-local storage,
+OAuth validation, account/client binding and rotation/disconnect fences. Before
+live fabric admission, qualify these alongside caller authority across every
+entry path, bounded usage enforcement and inference outbound endpoint policy.
+No provider token belongs in descriptors, replicated
 state, event logs, prompts, URLs, browser storage or routine diagnostics. Do not
 infer a no-paid-credit guarantee without proven upstream enforcement.
 
