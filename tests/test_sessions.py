@@ -186,6 +186,7 @@ async def test_connection_survives_restart_with_stable_host_identity(
 ) -> None:
     manager, issuer, _ = setup(tmp_path)
     host = manager.store.host_id()
+    assert host.startswith("urn:uuid:")
     await connect(manager, issuer)
     status = await manager.status()
     assert status.state == "authorized" and status.registration_id is not None

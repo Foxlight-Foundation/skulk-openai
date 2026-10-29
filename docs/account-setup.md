@@ -3,7 +3,7 @@
 The account lifecycle belongs to this package. It uses no OpenAI-specific Skulk
 core endpoint, worker, engine, configuration or State field. Setup is an explicit
 owner-local action, separate from installing a package or granting a caller use
-of the account. These commands currently exercise the session foundation;
+of the account. These commands exercise owner-local sessions and API primitives;
 connecting an account does **not** advertise live inference on the fabric.
 
 ## Operator commands
@@ -41,6 +41,45 @@ token. A failed remote request reports that revocation was not confirmed; use
 ChatGPT Settings to disconnect the app if necessary. Host ID and account/client
 mapping survive logout so returning sign-in does not invent a new registration.
 An already running upstream request may have executed before disconnect.
+
+## Account-specific models and one explicit probe
+
+After consent, explicitly refresh account-specific picker choices:
+
+```sh
+uv run skulk-openai-account --state-dir ./openai-account models
+```
+
+The command requests `GET https://api.openai.com/v1/models` with the selected
+account's OAuth bearer. It preserves server order and includes only entries with
+`visibility: list`. Each snapshot expires after 60 seconds and binds the exact
+account generation. A catalog entry is a picker choice, not evidence of quota,
+feature support, context size or entitlement. No hardcoded model list is used.
+
+An owner may then select a returned slug and send one small stdin prompt:
+
+```sh
+printf '%s' 'Say hello.' | uv run skulk-openai-account --state-dir ./openai-account probe --model RETURNED_SLUG --allow-unknown-usage
+```
+
+The probe refreshes the catalog before submitting. It makes at most one inference
+request and prints text while requiring an explicit completed terminal. Input is
+at most 4096 UTF-8 bytes; output is cut off at 1024 characters and upstream reads
+are bounded to 30 seconds. The output cutoff and time bound are **not** a billing
+cap. `--allow-unknown-usage` is required because this flow cannot prove a
+per-request exclusion of user-enabled credits. Review app usage settings in
+[ChatGPT Settings](https://chatgpt.com/settings/usage) before the first live call.
+
+The client fixes the API origin and uses `store: false`, `stream: true`, explicit
+message history, no redirects and no automatic retry. Expired choices, unavailable
+models and an account-generation mismatch fail before prompt submission. A remote
+revocation may be learned only when the provider rejects a request. Cancellation
+closes the owned HTTP stream; it does not prove upstream work or charging stopped.
+
+These primitives are owner-local. They are not fabric handlers and do not accept
+or create caller grants. Production capability admission must independently
+enforce caller policy before calling them. Automated tests use synthetic issuers
+and API responses; no live-account result is claimed.
 
 ## Implemented boundaries
 

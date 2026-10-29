@@ -50,7 +50,7 @@ class CredentialStore:
             """)
             connection.execute(
                 "INSERT OR IGNORE INTO metadata VALUES ('host_id', ?)",
-                (str(uuid.uuid4()),),
+                ("urn:uuid:" + str(uuid.uuid4()),),
             )
             connection.execute(
                 "INSERT OR IGNORE INTO metadata VALUES ('auth_epoch', '0')"
