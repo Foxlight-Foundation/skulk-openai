@@ -25,7 +25,7 @@ positive bound and fails closed.
 After owner consent, issue a caller credential locally:
 
 ```sh
-uv run skulk-openai-account --state-dir ./openai-account issue-grant --model RETURNED_SLUG --maximum-attempts 1 --lifetime-seconds 300 --allow-external-unknown-usage
+uv run skulk-openai-account issue-grant --model RETURNED_SLUG --maximum-attempts 1 --lifetime-seconds 300 --allow-external-unknown-usage
 ```
 
 The command refreshes the catalog, writes a private `caller-<grant-id>.json` under
@@ -43,7 +43,7 @@ with unknown usage is required; there is no inferred included-credit guarantee.
 Withdraw new admission locally with:
 
 ```sh
-uv run skulk-openai-account --state-dir ./openai-account revoke-grant --grant-id GRANT_ID
+uv run skulk-openai-account revoke-grant --grant-id GRANT_ID
 ```
 
 Disconnect and reauthorization invalidate old grants through the account

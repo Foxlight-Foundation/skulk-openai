@@ -6,14 +6,19 @@ owner-local action, separate from installing a package or granting a caller use
 of the account. These commands exercise owner-local sessions and API primitives;
 connecting an account does **not** advertise live inference on the fabric.
 
+Setup defaults to stable host state at `~/.local/state/skulk-openai`, independent
+of shell or runtime-generation directories. The managed child uses the same
+default. A separate managed `state_directory` must be an absolute private path;
+pass that exact path as `--state-dir` to setup when overriding the default.
+
 ## Operator commands
 
 On the capability's trusted POSIX host, use a dedicated private storage directory:
 
 ```sh
-uv run skulk-openai-account --state-dir ./openai-account status
-uv run skulk-openai-account --state-dir ./openai-account connect
-uv run skulk-openai-account --state-dir ./openai-account disconnect
+uv run skulk-openai-account status
+uv run skulk-openai-account connect
+uv run skulk-openai-account disconnect
 ```
 
 Only run `connect` when you intend to sign in and grant permissions. It binds an
@@ -47,7 +52,7 @@ An already running upstream request may have executed before disconnect.
 After consent, explicitly refresh account-specific picker choices:
 
 ```sh
-uv run skulk-openai-account --state-dir ./openai-account models
+uv run skulk-openai-account models
 ```
 
 The command requests `GET https://api.openai.com/v1/models` with the selected
@@ -59,7 +64,7 @@ feature support, context size or entitlement. No hardcoded model list is used.
 An owner may then select a returned slug and send one small stdin prompt:
 
 ```sh
-printf '%s' 'Say hello.' | uv run skulk-openai-account --state-dir ./openai-account probe --model RETURNED_SLUG --allow-unknown-usage
+printf '%s' 'Say hello.' | uv run skulk-openai-account probe --model RETURNED_SLUG --allow-unknown-usage
 ```
 
 The probe refreshes the catalog before submitting. It makes at most one inference
@@ -103,8 +108,9 @@ This reviewed headless-storage approach protects against other local users under
 normal POSIX permissions. It is not encrypted storage, a hardware vault or a
 sandbox against a compromised host account. The operator and capability process
 can access stored credentials. Do not copy the state directory into a source
-checkout, support bundle or another installation. The default directory is ignored
-by Git; arbitrary custom paths remain the operator's responsibility.
+checkout, support bundle or another installation. The default is outside the
+checkout; the development example directory is also ignored by Git. Arbitrary
+custom paths remain the operator's responsibility.
 
 ## Validation and remaining gates
 
@@ -112,10 +118,11 @@ Tests generate their own signing keys and identities and use `httpx.MockTranspor
 for every issuer request. Loopback listener tests use actual local sockets. No
 real account, production issuer, provider model or paid request is involved.
 
-Live fabric admission additionally needs authenticated caller grants, bounded
-usage admission, session-bound offer refresh, managed installation and live
-qualification. The existing managed-child example remains mock-only. A linked
-account must not be passed into that synthetic caller-authority example.
+The [managed account child](managed-capability.md) enforces signed caller grants,
+finite admission and session-bound cached offers. Actual account consent, signed
+installation and real-provider/distributed qualification remain open. The older
+managed-child example remains mock-only; do not pass an account into its
+synthetic authority model.
 
 The implementation follows the current official [registration and sign-in
 contract](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)

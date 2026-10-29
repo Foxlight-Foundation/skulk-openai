@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+import sqlite3
 import time
 from collections.abc import AsyncGenerator, Callable
 from contextlib import aclosing
@@ -90,6 +91,7 @@ class ProviderClient:
         self.sessions = sessions
         self.transport = transport
         self.clock = clock
+        self.requests_started = 0
 
     async def _current(self) -> Registration:
         current = await asyncio.to_thread(self.sessions.store.load)
@@ -176,6 +178,7 @@ class ProviderClient:
                 follow_redirects=False,
                 timeout=5,
             ) as client:
+                self.requests_started = min(self.requests_started + 1, 2**63 - 1)
                 async with client.stream(
                     "POST",
                     "https://api.openai.com/v1/responses",
@@ -240,3 +243,20 @@ class CatalogCache:
             return CatalogSnapshot.model_validate_json(raw)
         except ValueError:
             raise ProviderFailure("invalid_catalog") from None
+
+
+async def refresh_cached_catalog(provider: ProviderClient) -> bool:
+    """Refresh metadata once, preserving bounded cached facts on failure.
+
+    This performs no inference. Call only from an explicitly enabled owner's
+    metadata worker; health/discovery themselves must never invoke it.
+    """
+    try:
+        status = await provider.sessions.status()
+        if status.state not in {"authorized", "expired"}:
+            return False
+        snapshot = await provider.catalog()
+        await asyncio.to_thread(CatalogCache(provider.sessions).save, snapshot)
+        return True
+    except (AuthFailure, ProviderFailure, OSError, ValueError, sqlite3.Error):
+        return False

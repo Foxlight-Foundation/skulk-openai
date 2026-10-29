@@ -21,6 +21,11 @@ from typing import final
 from .auth_contracts import AuthFailure, Registration, TokenSet
 
 
+def default_state_directory() -> Path:
+    """Use stable per-user host state, independent of shell cwd or SDK generation."""
+    return Path.home() / ".local" / "state" / "skulk-openai"
+
+
 @final
 class CredentialStore:
     """Keep one installation's credentials beneath an owner-only directory."""

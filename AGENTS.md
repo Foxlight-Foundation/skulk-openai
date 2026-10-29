@@ -28,9 +28,12 @@ Before every implementation commit run:
 
 Managed SDK tests are a separate explicit suite. Missing SDK access must be
 reported as a gate, never silently treated as a passing managed test. Also run
-`uv run basedpyright examples tests_managed` and `uv run pytest tests_managed`
+`uv run basedpyright src/skulk_openai/managed.py examples tests_managed` and
+`uv run pytest tests_managed`
 when the licensed SDK is available; core CI covers only `src` and `tests`. Install
 licensed packages only in this repository's isolated environment.
+Core type checks exclude the SDK-dependent managed entrypoint; the explicit SDK
+check above includes it. Never describe the core job alone as managed validation.
 
 Use ready PRs and complete the review/check loop. Apply the Foxlight severity
 formula: components are half of likelihood/impact (1-5, zero when 1); subtract
