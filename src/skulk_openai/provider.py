@@ -194,3 +194,49 @@ class ProviderClient:
             yield GenerationEvent(kind="failed", error="policy_denied")
         except (httpx.HTTPError, TimeoutError):
             yield GenerationEvent(kind="failed", error="upstream_failed")
+
+
+class CatalogCache:
+    """Persist non-secret picker facts locally; reading never requests a token."""
+
+    def __init__(self, sessions: SessionManager) -> None:
+        """Use this capability's protected session database."""
+        self.store = sessions.store
+
+    def save(self, snapshot: CatalogSnapshot) -> None:
+        """Save only while the selected account/generation still matches."""
+        encoded = snapshot.model_dump_json()
+        if len(encoded.encode()) > 65536:
+            raise ProviderFailure("invalid_catalog")
+        with self.store.transaction() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT a.registration_id, a.generation, a.enabled FROM accounts a "
+                "JOIN metadata m ON m.key='active' AND m.value=a.registration_id"
+            ).fetchone()
+            if (
+                row is None
+                or str(row[0]) != snapshot.registration_id
+                or int(row[1]) != snapshot.generation
+                or not row[2]
+            ):
+                raise ProviderFailure("stale_catalog")
+            connection.execute(
+                "INSERT OR REPLACE INTO metadata VALUES ('catalog', ?)", (encoded,)
+            )
+
+    def read(self) -> CatalogSnapshot | None:
+        """Read cached facts; the serving boundary independently checks freshness."""
+        with self.store.transaction() as connection:
+            row = connection.execute(
+                "SELECT value FROM metadata WHERE key='catalog'"
+            ).fetchone()
+        if row is None:
+            return None
+        raw = str(row[0])
+        if len(raw.encode()) > 65536:
+            raise ProviderFailure("invalid_catalog")
+        try:
+            return CatalogSnapshot.model_validate_json(raw)
+        except ValueError:
+            raise ProviderFailure("invalid_catalog") from None

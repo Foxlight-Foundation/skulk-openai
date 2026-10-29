@@ -22,6 +22,9 @@ claim about a real account's eligibility, credits or quota.
 
 Selection first intersects caller requirements with the synthetic owner's grant.
 Unknown context cannot satisfy a requirement; unknown usage is not free usage.
+An explicit null context requirement asks for no context-size guarantee; the
+default positive requirement still rejects unknown context. No missing evidence
+is converted into a positive capability claim.
 Only eligible offers enter preference ordering. Ties use stable offer identity;
 duplicate identities are rejected. Dispatch binds principal, authority revision,
 exact offer and request digest. The digest stays in process, not routine logs.

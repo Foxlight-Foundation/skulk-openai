@@ -37,7 +37,7 @@ class CredentialStore:
             self._check(self.path)
         else:
             os.close(descriptor)
-        with self._connection() as connection:
+        with self.transaction() as connection:
             connection.executescript("""
                 CREATE TABLE IF NOT EXISTS metadata (
                     key TEXT PRIMARY KEY, value TEXT NOT NULL
@@ -70,7 +70,8 @@ class CredentialStore:
             raise AuthFailure("credentials_unavailable")
 
     @contextmanager
-    def _connection(self) -> Generator[sqlite3.Connection]:
+    def transaction(self) -> Generator[sqlite3.Connection]:
+        """Open a protected local transaction; commit or roll back and always close."""
         self._check(self.root, directory=True)
         self._check(self.path)
         connection = sqlite3.connect(self.path, timeout=3)
@@ -84,7 +85,7 @@ class CredentialStore:
 
     def host_id(self) -> str:
         """Return the persistent opaque host identity across restart and logout."""
-        with self._connection() as connection:
+        with self.transaction() as connection:
             row = connection.execute(
                 "SELECT value FROM metadata WHERE key='host_id'"
             ).fetchone()
@@ -94,7 +95,7 @@ class CredentialStore:
 
     def epoch(self) -> int:
         """Return the durable fence for pending authorization attempts."""
-        with self._connection() as connection:
+        with self.transaction() as connection:
             row = connection.execute(
                 "SELECT value FROM metadata WHERE key='auth_epoch'"
             ).fetchone()
@@ -123,7 +124,7 @@ class CredentialStore:
 
     def load(self, registration_id: str | None = None) -> Registration | None:
         """Read the selected registration without writing or making network requests."""
-        with self._connection() as connection:
+        with self.transaction() as connection:
             if registration_id is None:
                 selected = connection.execute(
                     "SELECT value FROM metadata WHERE key='active'"
@@ -160,7 +161,7 @@ class CredentialStore:
     ) -> Registration:
         """Commit verified credentials only if disconnect did not fence the attempt."""
         registration_id = self.registration_id(subject, client_id)
-        with self._connection() as connection:
+        with self.transaction() as connection:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
                 "SELECT generation FROM accounts WHERE registration_id=?",
@@ -201,7 +202,7 @@ class CredentialStore:
 
     def replace_tokens(self, registration: Registration, tokens: TokenSet) -> bool:
         """Atomically replace rotating credentials, refusing a concurrent disconnect."""
-        with self._connection() as connection:
+        with self.transaction() as connection:
             result = connection.execute(
                 "UPDATE accounts SET tokens=? WHERE registration_id=? "
                 "AND generation=? AND enabled=1",
@@ -220,7 +221,7 @@ class CredentialStore:
         expected_generation: int | None = None,
     ) -> Registration | None:
         """Fence admission and rotation, retaining only registration metadata."""
-        with self._connection() as connection:
+        with self.transaction() as connection:
             connection.execute("BEGIN IMMEDIATE")
             if registration_id is None:
                 active = connection.execute(

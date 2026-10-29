@@ -57,7 +57,7 @@ class Requirements(FrozenContract):
 
     allowed_domains: frozenset[ProcessingDomain] = frozenset({"local"})
     allowed_usage: frozenset[UsageClass] = frozenset({"none"})
-    minimum_context_tokens: int = Field(default=1, ge=1, le=1_000_000)
+    minimum_context_tokens: int | None = Field(default=1, ge=1, le=1_000_000)
     preferred_providers: tuple[Identifier, ...] = Field(default=(), max_length=16)
 
 
@@ -82,10 +82,10 @@ class Offer(FrozenContract):
 
 @final
 class Authority(FrozenContract):
-    """Synthetic host-supplied grant; never deserialize this from inference input.
+    """Trusted resolved grant snapshot; never deserialize this from inference input.
 
-    This reference does not authenticate principals or implement production grants.
-    Its trusted in-process owner supplies and can replace this snapshot.
+    This model itself authenticates nobody. The enforcing owner supplies it from
+    independently verified authority; offline fixtures supply synthetic grants.
     """
 
     principal: Identifier
