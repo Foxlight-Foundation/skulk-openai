@@ -10,7 +10,8 @@ It runs locally without a model, GPU, account or fleet lease.
 
 The session foundation also provides explicit [owner-local account
 setup](docs/account-setup.md), protected credentials, verified identity, serialized
-refresh and disconnect fencing. It is separate from the mock managed-child
+refresh, disconnect fencing and account-bound catalog/Responses primitives. It is
+separate from the mock managed-child
 example and does not enable live fabric calls. Automated tests need no account.
 
 ## Try the offline example
@@ -47,8 +48,9 @@ separately licensed SDK and does not claim those managed checks.
 
 ## Boundaries
 
-The inference adapter deliberately uses `httpx.MockTransport`; it has no live
-endpoint configuration or network mode. The shared contract is a draft reference,
+The offline demo deliberately uses `httpx.MockTransport`. A separate owner-only
+client supports explicit official API requests after consent; it is not exposed
+through the synthetic managed child. The shared contract is a draft reference,
 not an adopted SDK standard. Tool calls, larger contexts and additional modalities
 remain future work. See [contract](docs/contract.md) and
 [security boundaries](docs/security.md).

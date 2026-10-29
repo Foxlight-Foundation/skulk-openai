@@ -7,12 +7,16 @@ import secrets
 import sqlite3
 import sys
 import webbrowser
+from contextlib import aclosing
 from pathlib import Path
 from urllib.parse import urlsplit
+
+from skulk_inference_reference.contracts import GenerationRequest, Message
 
 from .auth_contracts import AuthFailure, ConnectionStatus
 from .credentials import CredentialStore
 from .oauth import AuthorizationAttempt, OAuthClient
+from .provider import ProviderClient, ProviderFailure
 from .sessions import SessionManager
 
 
@@ -215,6 +219,28 @@ async def run(arguments: argparse.Namespace) -> int:
                 "ChatGPT Settings if necessary."
             )
         return 0 if confirmed else 2
+    if command in {"models", "probe"}:
+        provider = ProviderClient(manager, allow_live=True)
+        catalog = await provider.catalog()
+        if command == "models":
+            print(catalog.model_dump_json())
+            return 0
+        raw = await asyncio.to_thread(sys.stdin.buffer.read, 4097)
+        text = raw.decode("utf-8").strip()
+        if not text or len(raw) > 4096:
+            raise ValueError("probe input must be bounded UTF-8 text")
+        request = GenerationRequest(messages=(Message(role="user", content=text),))
+        async with aclosing(
+            provider.generate(request, catalog=catalog, model=str(arguments.model))
+        ) as events:
+            async for event in events:
+                if event.kind == "text":
+                    print(event.text or "", end="", flush=True)
+                elif event.kind == "failed":
+                    print("\n" + (event.error or "upstream_failed"), file=sys.stderr)
+                    return 1
+        print()
+        return 0
     selected = None if arguments.new_account else await asyncio.to_thread(store.load)
     registration_id = str(arguments.registration) if arguments.registration else None
     if registration_id is None and selected is not None:
@@ -240,6 +266,10 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("status")
     commands.add_parser("disconnect")
+    commands.add_parser("models")
+    probe = commands.add_parser("probe")
+    probe.add_argument("--model", required=True)
+    probe.add_argument("--allow-unknown-usage", action="store_true", required=True)
     connect = commands.add_parser("connect")
     selection = connect.add_mutually_exclusive_group()
     selection.add_argument("--new-account", action="store_true")
@@ -249,6 +279,9 @@ def main() -> None:
     try:
         result = asyncio.run(run(arguments))
     except AuthFailure as error:
+        print(error.code, file=sys.stderr)
+        result = 1
+    except ProviderFailure as error:
         print(error.code, file=sys.stderr)
         result = 1
     except (OSError, ValueError, sqlite3.Error, TimeoutError):
