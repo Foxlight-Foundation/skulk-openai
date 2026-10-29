@@ -11,6 +11,7 @@ from skulk_capability_sdk.streams import StreamEnd, StreamFrame, read_packet
 from skulk_capability_sdk.wire import read_message, write_message
 
 from skulk_openai.admission import CallerCredential, SignedInvocation
+from skulk_openai.credentials import CredentialStore
 from skulk_openai.provider import CatalogSnapshot
 from tests.test_admission import invocation, prepared
 from tests.test_sessions import Clock
@@ -18,6 +19,22 @@ from tests_managed.test_child import Child, health, managed_child
 
 pytestmark = pytest.mark.managed
 _OBJECT = TypeAdapter(dict[str, JsonValue])
+
+
+async def test_disconnected_live_profile_owns_idle_worker_and_shuts_down(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "disconnected"
+    assert CredentialStore(root).load() is None
+    async with managed_child(
+        "mock-openai", guarded=True, disconnected_live=True, state_directory=root
+    ) as child:
+        await health(child)
+        assert (await unary(child, 0))["offers"] == []
+        status = await unary(child, 2)
+        assert status["connection"] == "disconnected"
+        assert status["requests_started"] == 0
+    assert CredentialStore(root).load() is None
 
 
 def sign(

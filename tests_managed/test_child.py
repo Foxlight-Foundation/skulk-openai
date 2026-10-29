@@ -33,6 +33,7 @@ from skulk_capability_sdk.streams import StreamEnd, StreamFrame, read_packet
 from skulk_capability_sdk.wire import read_message, write_message
 
 from examples.managed_child import descriptors
+from skulk_openai.credentials import CredentialStore
 from skulk_openai.managed import Configuration as AccountConfiguration
 from skulk_openai.managed import descriptors as account_descriptors
 
@@ -59,9 +60,18 @@ async def managed_child(
     enabled: bool = True,
     delay_seconds: float = 0.0,
     guarded: bool = False,
+    disconnected_live: bool = False,
     state_directory: Path | None = None,
 ) -> AsyncGenerator[Child]:
     """Launch one real subprocess with private temporary Unix sockets and FD IPC."""
+    if disconnected_live and (
+        not guarded
+        or state_directory is None
+        or CredentialStore(state_directory).load() is not None
+    ):
+        raise ValueError(
+            "live-profile exercise requires an isolated disconnected store"
+        )
     connections: asyncio.Queue[tuple[asyncio.StreamReader, asyncio.StreamWriter]] = (
         asyncio.Queue()
     )
@@ -81,12 +91,16 @@ async def managed_child(
             lambda reader, writer: media.put_nowait((reader, writer)), root / "stream"
         )
         manifest = Manifest(
-            bundle_id="reference.openai.mock" if guarded else f"reference.{profile}",
+            bundle_id=(
+                "reference.openai" if disconnected_live else "reference.openai.mock"
+            )
+            if guarded
+            else f"reference.{profile}",
             bundle_version="0.1.0",
             executable=sys.executable,
             executable_sha256=_EXECUTABLE_DIGEST,
             arguments=("-m", "skulk_openai.managed") if guarded else (str(entry),),
-            descriptors=account_descriptors(mock=True)
+            descriptors=account_descriptors(mock=not disconnected_live)
             if guarded
             else descriptors(profile),
             configuration_schema=AccountConfiguration.model_json_schema()

@@ -19,6 +19,16 @@ from .auth_contracts import ISSUER, RESOURCE, AuthFailure, Registration, TokenRe
 
 _OBJECT = TypeAdapter(dict[str, JsonValue])
 SCOPES = "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct"
+TERMINAL_REFRESH_ERRORS = frozenset(
+    {
+        "invalid_grant",
+        "invalid_refresh_token",
+        "token_expired",
+        "refresh_token_expired",
+        "refresh_token_invalidated",
+        "refresh_token_reused",
+    }
+)
 
 
 class Discovery(FrozenContract):
@@ -119,12 +129,21 @@ class OAuthClient:
                         if response.status_code >= 500:
                             raise AuthFailure("provider_unavailable")
                         if response.status_code != 200:
-                            if response.status_code in (400, 401):
+                            if 400 <= response.status_code < 500:
                                 try:
                                     value = _OBJECT.validate_json(raw)
                                 except ValueError:
                                     value = {}
-                                if value.get("error") == "invalid_grant":
+                                code = value.get("error")
+                                if isinstance(code, dict):
+                                    code = code.get("code")
+                                terminal = (
+                                    TERMINAL_REFRESH_ERRORS
+                                    if data is not None
+                                    and data.get("grant_type") == "refresh_token"
+                                    else frozenset({"invalid_grant"})
+                                )
+                                if isinstance(code, str) and code in terminal:
                                     raise AuthFailure("session_revoked")
                             raise AuthFailure("invalid_response")
                         if not raw and empty_ok:
@@ -152,6 +171,7 @@ class OAuthClient:
         redirect_uri: str,
         epoch: int,
         selected: Registration | None = None,
+        request_plan_consent: bool = False,
     ) -> AuthorizationAttempt:
         """Create a ten-minute PKCE transaction with an exact loopback callback."""
         try:
@@ -201,6 +221,9 @@ class OAuthClient:
             parameters["agent_name_hint"] = "Skulk OpenAI Capability"
         elif selected.tokens is not None:
             parameters["id_token_hint"] = selected.tokens.id_token.get_secret_value()
+        if request_plan_consent:
+            # Never force consent on ordinary reconnection; this is owner intent.
+            parameters["prompt"] = "consent"
         attempt = AuthorizationAttempt(
             state=SecretStr(state),
             nonce=SecretStr(nonce),

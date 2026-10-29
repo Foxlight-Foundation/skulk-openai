@@ -65,10 +65,11 @@ uv run basedpyright src/skulk_openai/managed.py examples tests_managed
 uv run pytest tests_managed
 ```
 
-Eleven SDK process tests cover the legacy fixture/mock examples and the guarded
+Twelve SDK process tests cover the legacy fixture/mock examples and the guarded
 child: startup, health, discovery, signed stream, direct forgery, replay,
 disable/disconnect, restart and cancellation without nonce refund. All accounts,
-keys and upstream responses are synthetic.
+keys and upstream responses are synthetic. A disconnected live-profile exercise
+also proves its idle metadata worker shuts down without account access.
 
 An additional isolated qualification used the actual managed owner and current
 Skulk dev adapter with a separately installed reference wheel, no resident node
