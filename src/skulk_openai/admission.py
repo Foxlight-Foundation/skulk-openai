@@ -283,6 +283,10 @@ class GrantStore:
                     bytes.fromhex(signed.signature),
                     invocation.canonical(signed.grant_id),
                 )
+                # A busy writer may have delayed this transaction past expiry.
+                now = self.clock()
+                if not now < invocation.expires_at <= now + 60:
+                    raise AuthFailure("permission_missing")
                 authority = Authority(
                     principal=grant.grant_id,
                     revision=grant.generation,

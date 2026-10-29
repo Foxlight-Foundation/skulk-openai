@@ -2,6 +2,8 @@
 
 import asyncio
 import secrets
+import sqlite3
+import threading
 from pathlib import Path
 
 import httpx
@@ -9,6 +11,7 @@ import pytest
 
 from skulk_inference_reference.contracts import Requirements
 from skulk_openai.admission import CallerCredential, GrantStore, Invocation
+from skulk_openai.auth_contracts import AuthFailure
 from skulk_openai.caller import read_credential, write_credential
 from skulk_openai.capability import InferenceCapability
 from skulk_openai.credentials import CredentialStore
@@ -279,3 +282,41 @@ async def test_canonical_proof_survives_policy_set_order_and_json_roundtrip(
     signed = credential.sign(original)
     roundtrip = SignedInvocation.model_validate_json(signed.model_dump_json())
     assert (await collect(capability.generate(roundtrip)))[-1].kind == "completed"
+
+
+async def test_proof_expiring_behind_database_writer_is_not_admitted(
+    tmp_path: Path,
+) -> None:
+    capability, credential, catalog, api, clock = await prepared(tmp_path)
+    started = threading.Event()
+
+    def admission_clock() -> float:
+        """Observe the real admission thread before it waits for the database."""
+        started.set()
+        return clock()
+
+    capability.grants.clock = admission_clock
+    signed = credential.sign(invocation(catalog, clock))
+    blocker = sqlite3.connect(capability.grants.credentials.path)
+    blocker.execute("BEGIN IMMEDIATE")
+    pending = asyncio.create_task(
+        asyncio.to_thread(
+            capability.grants.admit,
+            signed,
+            catalog=catalog,
+            target_node=capability.target_node,
+            callable_id=capability.callable_id,
+            descriptor_revision=capability.descriptor_revision,
+        )
+    )
+    try:
+        assert await asyncio.to_thread(started.wait, 1)
+        clock.now += 31
+    finally:
+        blocker.rollback()
+        blocker.close()
+    with pytest.raises(AuthFailure, match="permission_missing"):
+        await pending
+    fresh = credential.sign(invocation(catalog, clock))
+    assert (await collect(capability.generate(fresh)))[-1].kind == "completed"
+    assert len(api.calls) == 2
