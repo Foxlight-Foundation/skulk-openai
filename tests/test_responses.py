@@ -39,7 +39,9 @@ class Fragments(httpx.AsyncByteStream):
         self.closed = True
 
 
-def adapter_for(stream: Fragments, *, status: int = 200) -> MockResponsesAdapter:
+def adapter_for(
+    stream: Fragments, *, status: int = 200, duration_seconds: float = 30
+) -> MockResponsesAdapter:
     """Create a socket-free transport that returns the supplied synthetic stream."""
     return MockResponsesAdapter(
         httpx.MockTransport(
@@ -48,7 +50,8 @@ def adapter_for(stream: Fragments, *, status: int = 200) -> MockResponsesAdapter
                 headers={"content-type": "text/event-stream"},
                 stream=stream,
             )
-        )
+        ),
+        duration_seconds=duration_seconds,
     )
 
 
@@ -269,4 +272,21 @@ async def test_terminal_without_eof_has_a_bounded_failure() -> None:
             async for item in adapter_for(stream).generate(request(), model="synthetic")
         ]
     assert len(events) == 1 and events[0].error == "invalid_stream"
+    assert stream.closed
+
+
+async def test_upstream_deadline_does_not_cancel_slow_consumer_work() -> None:
+    stream = Fragments(
+        (
+            event_bytes({"type": "response.output_text.delta", "delta": "text"}),
+            event_bytes({"type": "response.completed"}),
+        )
+    )
+    output = adapter_for(stream, duration_seconds=0.02).generate(
+        request(), model="synthetic"
+    )
+    async with aclosing(output):
+        assert (await anext(output)).kind == "text"
+        await asyncio.sleep(0.04)
+        assert (await anext(output)).error == "invalid_stream"
     assert stream.closed

@@ -56,6 +56,7 @@ class Issuer:
         self.release: asyncio.Event | None = None
         self.claim_overrides: dict[str, object] = {}
         self.requests: list[httpx.Request] = []
+        self.refresh_identity = False
 
     def identity(self, client_id: str) -> str:
         """Sign a generated identity; no trusted field comes from callback email."""
@@ -89,6 +90,8 @@ class Issuer:
                 },
             )
         if request.url.path == "/.well-known/jwks.json":
+            if self.failure == "jwks":
+                return httpx.Response(503)
             return httpx.Response(200, json={"keys": [self.public]})
         form = parse_qs(request.content.decode())
         if request.url.path == "/api/accounts/oauth/revoke":
@@ -130,6 +133,13 @@ class Issuer:
             return httpx.Response(400, json={"error": "invalid_grant"})
         assert form["refresh_token"] == [self.refresh_value]
         self.refresh_value = f"synthetic-refresh-{self.refresh_calls + 1}"
+        identity = (
+            {"id_token": self.identity(form["client_id"][0])}
+            if self.refresh_identity
+            else {}
+        )
+        if self.refresh_identity:
+            self.failure = "jwks"
         return httpx.Response(
             200,
             json={
@@ -137,6 +147,7 @@ class Issuer:
                 "refresh_token": self.refresh_value,
                 "token_type": "Bearer",
                 "expires_in": 3600,
+                **identity,
             },
         )
 
@@ -461,3 +472,81 @@ async def test_consent_denial_is_terminal_without_code_exchange(tmp_path: Path) 
     with pytest.raises(AuthFailure, match="consent_denied"):
         await listener.wait()
     assert issuer.requests == [] and manager.store.load() is None
+
+
+async def test_stale_refresh_failure_cannot_disconnect_reauthorized_session(
+    tmp_path: Path,
+) -> None:
+    manager, issuer, clock = setup(tmp_path)
+    await connect(manager, issuer)
+    old = manager.store.load()
+    assert old is not None
+    clock.now += 3550
+    issuer.release = asyncio.Event()
+    refresh = asyncio.create_task(
+        manager.access_token(old.registration_id, old.generation)
+    )
+    await asyncio.wait_for(issuer.entered.wait(), 1)
+    issuer.attempt = await manager.begin(
+        "http://127.0.0.1:1456/auth/callback", registration_id=old.registration_id
+    )
+    await manager.complete(
+        issuer.attempt,
+        urlencode({"state": issuer.attempt.state.get_secret_value(), "code": "new"}),
+    )
+    issuer.failure = "revoked"
+    issuer.release.set()
+    with pytest.raises(AuthFailure, match="session_revoked"):
+        await refresh
+    current = manager.store.load()
+    assert current is not None and current.generation > old.generation
+    assert current.enabled and current.tokens is not None
+    assert (await manager.status()).state == "authorized"
+
+
+async def test_key_fetch_failure_happens_before_rotating_refresh(
+    tmp_path: Path,
+) -> None:
+    manager, issuer, clock = setup(tmp_path)
+    await connect(manager, issuer)
+    current = manager.store.load()
+    assert current is not None
+    clock.now += 3550
+    issuer.failure = "jwks"
+    with pytest.raises(AuthFailure, match="provider_unavailable"):
+        await manager.access_token(current.registration_id, current.generation)
+    assert issuer.refresh_calls == 0
+    issuer.failure = None
+    assert await manager.access_token(current.registration_id, current.generation)
+    assert issuer.refresh_calls == 1
+
+
+async def test_refresh_persists_rotation_without_a_subsequent_key_request(
+    tmp_path: Path,
+) -> None:
+    manager, issuer, clock = setup(tmp_path)
+    await connect(manager, issuer)
+    current = manager.store.load()
+    assert current is not None
+    clock.now += 3550
+    issuer.refresh_identity = True
+    assert await manager.access_token(current.registration_id, current.generation)
+    saved = manager.store.load()
+    assert saved is not None and saved.tokens is not None
+    assert saved.tokens.refresh_token is not None
+    assert saved.tokens.refresh_token.get_secret_value() == issuer.refresh_value
+    assert issuer.requests[-1].url.path == "/api/accounts/oauth/token"
+
+
+@pytest.mark.parametrize("fault", ["signature", "key-id"])
+async def test_invalid_signatures_or_unknown_keys_cannot_save_a_connection(
+    tmp_path: Path, fault: str
+) -> None:
+    manager, issuer, _ = setup(tmp_path)
+    if fault == "signature":
+        issuer.key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    else:
+        issuer.public["kid"] = "unrecognized-key"
+    with pytest.raises(AuthFailure, match="identity_invalid"):
+        await connect(manager, issuer)
+    assert manager.store.load() is None

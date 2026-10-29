@@ -209,6 +209,8 @@ class SessionManager:
         if previous is None or previous.refresh_token is None:
             raise AuthFailure("sign_in_required")
         metadata = await self.client.discovery()
+        # Fetch verification material before any rotating token can be consumed.
+        keys = await self.client.request("GET", metadata.jwks_uri)
         try:
             payload = await self.client.request(
                 "POST",
@@ -222,7 +224,11 @@ class SessionManager:
             )
         except AuthFailure as error:
             if error.code == "session_revoked":
-                await asyncio.to_thread(self.store.disconnect, current.registration_id)
+                await asyncio.to_thread(
+                    self.store.disconnect,
+                    current.registration_id,
+                    expected_generation=current.generation,
+                )
             raise
         try:
             response = TokenResponse.model_validate(payload)
@@ -231,7 +237,7 @@ class SessionManager:
         if response.id_token is not None:
             verify_identity(
                 response.id_token.get_secret_value(),
-                await self.client.request("GET", metadata.jwks_uri),
+                keys,
                 client_id=current.client_id,
                 nonce=None,
                 subject=current.subject,

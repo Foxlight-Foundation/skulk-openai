@@ -213,19 +213,24 @@ class CredentialStore:
             )
             return result.rowcount == 1
 
-    def disconnect(self, registration_id: str | None = None) -> Registration | None:
+    def disconnect(
+        self,
+        registration_id: str | None = None,
+        *,
+        expected_generation: int | None = None,
+    ) -> Registration | None:
         """Fence admission and rotation, retaining only registration metadata."""
         with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            connection.execute(
-                "UPDATE metadata SET value=CAST(value AS INTEGER)+1 "
-                "WHERE key='auth_epoch'"
-            )
             if registration_id is None:
                 active = connection.execute(
                     "SELECT value FROM metadata WHERE key='active'"
                 ).fetchone()
                 if active is None:
+                    connection.execute(
+                        "UPDATE metadata SET value=CAST(value AS INTEGER)+1 "
+                        "WHERE key='auth_epoch'"
+                    )
                     return None
                 registration_id = str(active[0])
             row = connection.execute(
@@ -235,6 +240,12 @@ class CredentialStore:
             ).fetchone()
             if row is None:
                 return None
+            if expected_generation is not None and int(row[2]) != expected_generation:
+                return None
+            connection.execute(
+                "UPDATE metadata SET value=CAST(value AS INTEGER)+1 "
+                "WHERE key='auth_epoch'"
+            )
             previous = Registration(
                 registration_id=registration_id,
                 subject=str(row[0]),
