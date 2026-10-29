@@ -65,10 +65,11 @@ def rejection_reasons(
         or offer.usage not in authority.allowed_usage
     ):
         reasons.append("usage_forbidden")
-    if offer.context_tokens is None:
-        reasons.append("context_unknown")
-    elif offer.context_tokens < requirements.minimum_context_tokens:
-        reasons.append("context_insufficient")
+    if requirements.minimum_context_tokens is not None:
+        if offer.context_tokens is None:
+            reasons.append("context_unknown")
+        elif offer.context_tokens < requirements.minimum_context_tokens:
+            reasons.append("context_insufficient")
     if request.maximum_output_characters > authority.maximum_output_characters:
         reasons.append("output_forbidden")
     return tuple(reasons)

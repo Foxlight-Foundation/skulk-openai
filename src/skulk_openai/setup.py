@@ -13,10 +13,12 @@ from urllib.parse import urlsplit
 
 from skulk_inference_reference.contracts import GenerationRequest, Message
 
+from .admission import GrantStore
 from .auth_contracts import AuthFailure, ConnectionStatus
+from .caller import write_credential
 from .credentials import CredentialStore
 from .oauth import AuthorizationAttempt, OAuthClient
-from .provider import ProviderClient, ProviderFailure
+from .provider import CatalogCache, ProviderClient, ProviderFailure
 from .sessions import SessionManager
 
 
@@ -219,9 +221,36 @@ async def run(arguments: argparse.Namespace) -> int:
                 "ChatGPT Settings if necessary."
             )
         return 0 if confirmed else 2
+    if command == "revoke-grant":
+        await asyncio.to_thread(GrantStore(store).revoke, str(arguments.grant_id))
+        print("Caller grant revoked for new admission.")
+        return 0
+    if command == "issue-grant":
+        provider = ProviderClient(manager, allow_live=True)
+        catalog = await provider.catalog()
+        await asyncio.to_thread(CatalogCache(manager).save, catalog)
+        grants = GrantStore(store)
+        credential = await asyncio.to_thread(
+            grants.issue,
+            catalog,
+            models=tuple(str(model) for model in arguments.model),
+            maximum_attempts=int(arguments.maximum_attempts),
+            maximum_output_characters=int(arguments.maximum_output_characters),
+            lifetime_seconds=float(arguments.lifetime_seconds),
+            allow_external_unknown_usage=bool(arguments.allow_external_unknown_usage),
+        )
+        try:
+            path = await asyncio.to_thread(write_credential, store, credential)
+        except OSError:
+            await asyncio.to_thread(grants.revoke, credential.grant.grant_id)
+            raise
+        print("Caller credential saved: " + str(path))
+        print("Grant ID: " + credential.grant.grant_id)
+        return 0
     if command in {"models", "probe"}:
         provider = ProviderClient(manager, allow_live=True)
         catalog = await provider.catalog()
+        await asyncio.to_thread(CatalogCache(manager).save, catalog)
         if command == "models":
             print(catalog.model_dump_json())
             return 0
@@ -267,6 +296,16 @@ def main() -> None:
     commands.add_parser("status")
     commands.add_parser("disconnect")
     commands.add_parser("models")
+    grant = commands.add_parser("issue-grant")
+    grant.add_argument("--model", action="append", required=True)
+    grant.add_argument("--maximum-attempts", type=int, default=1)
+    grant.add_argument("--maximum-output-characters", type=int, default=1024)
+    grant.add_argument("--lifetime-seconds", type=float, default=300)
+    grant.add_argument(
+        "--allow-external-unknown-usage", action="store_true", required=True
+    )
+    revoke = commands.add_parser("revoke-grant")
+    revoke.add_argument("--grant-id", required=True)
     probe = commands.add_parser("probe")
     probe.add_argument("--model", required=True)
     probe.add_argument("--allow-unknown-usage", action="store_true", required=True)

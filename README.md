@@ -14,6 +14,11 @@ refresh, disconnect fencing and account-bound catalog/Responses primitives. It i
 separate from the mock managed-child
 example and does not enable live fabric calls. Automated tests need no account.
 
+The [caller-grant experiment](docs/caller-grants.md) adds capability-owned signing
+keys, finite admission budgets and durable replay fences. Its standalone
+`InferenceCapability` boundary enforces hard policy before the HTTP client.
+Actual owner/core transport and signed installed qualification remain open.
+
 ## Try the offline example
 
 Install Python 3.13 and [uv](https://docs.astral.sh/uv/), then:
@@ -55,8 +60,9 @@ not an adopted SDK standard. Tool calls, larger contexts and additional modaliti
 remain future work. See [contract](docs/contract.md) and
 [security boundaries](docs/security.md).
 
-Synthetic grants are trusted in-process test inputs, not authenticated production
-caller authority. Real accounts must not be made callable until protected
+The offline demo's grants are trusted in-process test inputs. The separate
+capability-owned signing experiment does not establish authenticated human caller
+propagation in the SDK. Real accounts must not be made callable until protected
 credentials and caller authority are enforced across fabric entry paths. Actual
 account consent, live inference, publication and installed qualification remain
 open work.

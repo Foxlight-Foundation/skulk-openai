@@ -13,6 +13,12 @@ fields cannot manufacture grants, hard constraints precede preference, and direc
 invocation is checked before the mock HTTP sink sees content. It does not
 implement authenticated caller/grant propagation across a distributed fabric.
 
+The separate [caller-grant experiment](caller-grants.md) uses capability-owned
+public-key verification and a durable nonce/budget transaction before the API
+client receives content. Its source tests exercise the real enforcing handler
+with synthetic upstreams. It is not an SDK caller-identity standard or evidence
+of installed/distributed qualification.
+
 The synthetic owner must supply authority and serialize admission with revocation.
 Rechecks are local reference logic, not a cryptographically authenticated grant
 format or a guarantee that remote revocation stops already-running upstream work.
