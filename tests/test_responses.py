@@ -159,6 +159,85 @@ async def test_owner_diagnostic_contains_only_a_fixed_failure_reason(
     assert stream.closed
 
 
+@pytest.mark.parametrize(
+    "media_type,body,expected",
+    [
+        (
+            None,
+            event_bytes({"type": "response.output_text.delta", "delta": "hello"})
+            + event_bytes({"type": "response.completed"}),
+            "completed",
+        ),
+        (
+            "Text/Event-Stream ; charset=utf-8",
+            event_bytes({"type": "response.completed"}),
+            "completed",
+        ),
+        (None, b'{"type":"response.completed"}', "invalid_stream"),
+        (
+            "application/json",
+            event_bytes({"type": "response.completed"}),
+            "invalid_stream",
+        ),
+        (
+            None,
+            event_bytes({"type": "response.output_text.delta", "delta": "partial"}),
+            "interrupted",
+        ),
+    ],
+)
+async def test_missing_media_type_still_requires_a_complete_valid_sse_stream(
+    media_type: str | None, body: bytes, expected: str
+) -> None:
+    stream = Fragments((body,))
+    headers = {} if media_type is None else {"content-type": media_type}
+    adapter = MockResponsesAdapter(
+        httpx.MockTransport(
+            lambda _: httpx.Response(200, headers=headers, stream=stream)
+        )
+    )
+
+    events = [item async for item in adapter.generate(request(), model="synthetic")]
+
+    if expected == "completed":
+        assert events[-1].kind == "completed"
+    else:
+        assert events[-1].kind == "failed" and events[-1].error == expected
+    assert stream.closed
+
+
+@pytest.mark.parametrize("terminal", [None, "response.completed", "response.failed"])
+async def test_provider_metadata_is_not_output_or_evidence_of_completion(
+    terminal: str | None,
+) -> None:
+    raw = event_bytes({"type": "response.output_text.delta", "delta": "hello"})
+    raw += event_bytes(
+        {
+            "type": "response.metadata",
+            "text": "private metadata",
+            "status": "completed",
+            "usage": {"included_only": True},
+        }
+    )
+    if terminal is not None:
+        raw += event_bytes({"type": terminal})
+    stream = Fragments((raw,))
+
+    events = [
+        item
+        async for item in adapter_for(stream).generate(request(), model="synthetic")
+    ]
+
+    assert events[0].kind == "text" and events[0].text == "hello"
+    assert len(events) == 2 and "private metadata" not in repr(events)
+    if terminal == "response.completed":
+        assert events[-1].kind == "completed"
+    else:
+        expected = "interrupted" if terminal is None else "upstream_failed"
+        assert events[-1].kind == "failed" and events[-1].error == expected
+    assert stream.closed
+
+
 async def test_output_limit_closes_without_replay() -> None:
     stream = Fragments(
         (event_bytes({"type": "response.output_text.delta", "delta": "too long"}),)
