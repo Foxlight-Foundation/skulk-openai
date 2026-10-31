@@ -42,3 +42,14 @@ health remains available. Stream errors contain fixed codes, not upstream bodies
 No hidden billing fallback, automatic retry after uncertain execution, provider
 switch after partial output or automatic execution of returned tool instructions
 is provided. Self-hosting does not make a compromised host or plugin trustworthy.
+
+
+## Delegated unified chat
+
+The experimental [gateway chat contract](gateway-chat.md) preserves this
+capability-owned enforcement boundary. A public gateway key, caller node ID or
+fabric membership grants no inference authority. Only a saved owner delegation
+bound to the selected account generation, model allowlist and limits admits a
+valid short-lived signed request. Replay and shared attempt-budget reservation
+are atomic in the same protected journal as account changes. No provider token
+is delegated to Core, and no human-identity propagation in the SDK is claimed.

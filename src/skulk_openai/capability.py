@@ -18,6 +18,7 @@ from skulk_inference_reference.contracts import (
 from .admission import GrantStore, SignedInvocation, catalog_offer
 from .auth_contracts import AuthFailure
 from .provider import CatalogCache, CatalogSnapshot, ProviderClient, ProviderFailure
+from .settings import SettingsStore
 
 
 class InferenceDiscovery(FrozenContract):
@@ -46,12 +47,28 @@ class InferenceCapability:
         self.target_node = target_node
         self.callable_id = callable_id
         self.descriptor_revision = descriptor_revision
-        self.enabled = enabled
+        self.settings = SettingsStore(provider.sessions.store)
+        self._startup_enabled = enabled
         self.clock = clock
         self.grants = GrantStore(provider.sessions.store, clock=clock)
         self.cache = CatalogCache(provider.sessions)
 
-    async def _catalog(self) -> CatalogSnapshot | None:
+    @property
+    def enabled(self) -> bool:
+        """Use current saved owner policy, or the legacy startup default."""
+        return (
+            self.settings.read().inference_enabled
+            if self.settings.configured()
+            else self._startup_enabled
+        )
+
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        """Update the legacy default without overriding a persisted owner choice."""
+        self._startup_enabled = value
+
+    async def current_catalog(self) -> CatalogSnapshot | None:
+        """Read a fresh account-bound catalog without contacting the provider."""
         if not self.enabled:
             return None
         catalog = await asyncio.to_thread(self.cache.read)
@@ -69,8 +86,14 @@ class InferenceCapability:
     async def discovery(self) -> InferenceDiscovery:
         """Publish at most sixteen cached choices without upstream HTTP or refresh."""
         try:
-            catalog = await self._catalog()
+            catalog = await self.current_catalog()
             if catalog is None:
+                return InferenceDiscovery(target_node=self.target_node)
+            settings = self.settings.read() if self.settings.configured() else None
+            if settings is not None and (
+                settings.processing != "allow_openai"
+                or settings.usage != "app_settings"
+            ):
                 return InferenceDiscovery(target_node=self.target_node)
             offers = tuple(
                 catalog_offer(
@@ -80,6 +103,7 @@ class InferenceCapability:
                     descriptor_revision=self.descriptor_revision,
                 )
                 for model in catalog.models[:16]
+                if settings is None or model.slug in settings.models
             )
             return InferenceDiscovery(
                 target_node=self.target_node,
@@ -98,7 +122,7 @@ class InferenceCapability:
     ) -> AsyncGenerator[GenerationEvent]:
         """Enforce every direct invocation, independently of caller-side routing."""
         try:
-            catalog = await self._catalog()
+            catalog = await self.current_catalog()
             if catalog is None:
                 raise AuthFailure("permission_missing")
             await asyncio.to_thread(

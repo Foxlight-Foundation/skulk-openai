@@ -1,4 +1,4 @@
-# skulk-openai
+# Skulk OpenAI Integrator
 
 An experimental, public learning reference for building managed inference
 capabilities with Skulk. Implementation lives on `initiative/openai-provider`.
@@ -42,8 +42,11 @@ for these HTTP mocks, and no provider token is read.
 ## Manage the capability
 
 The [owner-local management page](docs/management-ui.md) provides connection
-status, connect/reconnect/disconnect, account-specific models and an explicit
-streaming test with processing/usage policy controls:
+status, connect/reconnect/disconnect, account model selection and persistent
+integration settings, using the Skulk Video Studio design language and Skulk mark.
+A secondary diagnostic checks one streaming request. The experimental
+[gateway chat contract](docs/gateway-chat.md) connects delegated models to Skulk
+chat and its unified API on compatible builds:
 
 ```sh
 uv run skulk-openai-ui --enable-inference
@@ -75,8 +78,10 @@ separately licensed SDK and does not claim those managed checks.
 The offline demo deliberately uses `httpx.MockTransport`. A separate owner-only
 client supports explicit official API requests after consent; it is not exposed
 through the synthetic managed child. The shared contract is a draft reference,
-not an adopted SDK standard. Tool calls, larger contexts and additional modalities
-remain future work. See [contract](docs/contract.md) and
+not an adopted SDK standard. The original finite text contract stays available;
+the gateway chat experiment additionally supports function calls, explicit history,
+structured output and bounded inline images. Large-media transfer and distributed
+routing remain separate work. See [contract](docs/contract.md) and
 [security boundaries](docs/security.md).
 
 The offline demo's grants are trusted in-process test inputs. The separate

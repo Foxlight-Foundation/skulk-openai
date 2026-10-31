@@ -29,12 +29,14 @@ from skulk_capability_sdk.storage import read_startup
 from skulk_capability_sdk.streams import StreamError, StreamFrame, execute_stream
 from skulk_capability_sdk.wire import ProtocolError, read_message, write_message
 
+from skulk_inference_reference.chat import ChatCatalog, ChatEvent, GatewayProof
 from skulk_inference_reference.contracts import FrozenContract, GenerationEvent
 
 from .admission import SignedInvocation
 from .auth_contracts import AuthFailure
 from .capability import InferenceCapability, InferenceDiscovery
 from .credentials import CredentialStore, default_state_directory
+from .gateway import GatewayService
 from .management import ManagementServer
 from .oauth import OAuthClient
 from .provider import ProviderClient, ProviderFailure, refresh_cached_catalog
@@ -46,7 +48,19 @@ _OBJECT = TypeAdapter(dict[str, JsonValue])
 
 def management_surfaces() -> tuple[Surface, ...]:
     """Declare the owner-local UI using the existing generic link contract."""
-    return (Surface(surface_id="management", title="OpenAI", kind="link"),)
+    return (
+        Surface(surface_id="management", title="Skulk OpenAI Integrator", kind="link"),
+    )
+
+
+def chat_catalog_schema() -> dict[str, JsonValue]:
+    """Declare a strict cached catalog, or empty withdrawn availability."""
+    schema = _OBJECT.validate_python(ChatCatalog.model_json_schema())
+    definitions = schema.pop("$defs", {})
+    return {
+        "$defs": definitions,
+        "anyOf": [schema, {"type": "object", "additionalProperties": False}],
+    }
 
 
 class Configuration(FrozenContract):
@@ -102,6 +116,29 @@ def descriptors(*, mock: bool = False) -> tuple[Descriptor, ...]:
             input_schema={"type": "object", "additionalProperties": False},
             output_schema=_OBJECT.validate_python(Status.model_json_schema()),
         ),
+        Descriptor(
+            id=prefix + ".chat-catalog",
+            version="0.1.0",
+            title=label + " chat models",
+            description="Cached owner-enabled chat models for a delegated gateway.",
+            input_schema={"type": "object", "additionalProperties": False},
+            output_schema=chat_catalog_schema(),
+            annotations={"inference.catalog": "chat.completions@0.1.0"},
+        ),
+        Descriptor(
+            id=prefix + ".chat",
+            version="0.1.0",
+            title=label + " delegated chat",
+            description="One signed chat request under the owner's gateway policy.",
+            input_schema=_OBJECT.validate_python(GatewayProof.model_json_schema()),
+            output_schema={"type": "object", "additionalProperties": False},
+            io_mode="server_streaming",
+            output_chunk_schema=_OBJECT.validate_python(ChatEvent.model_json_schema()),
+            annotations={
+                "inference.contract": "chat.completions@0.1.0",
+                "inference.authorization": "gateway.ed25519@0.1.0",
+            },
+        ),
     )
 
 
@@ -115,7 +152,7 @@ def build_manifest(
     """
     return Manifest(
         bundle_id="reference.openai.mock" if mock else "reference.openai",
-        bundle_version="0.2.0",
+        bundle_version="0.3.0",
         executable=executable,
         executable_sha256=executable_sha256,
         arguments=(),
@@ -201,14 +238,51 @@ async def serve(startup: Startup) -> None:
         descriptor_revision=published[1].revision,
         enabled=configuration.inference_enabled,
     )
+    gateway = GatewayService(
+        capability, callable_id=published[4].id, revision=published[4].revision
+    )
     reader, writer = await asyncio.open_unix_connection(startup.socket)
-    execution: asyncio.Task[None] | None = None
+    executions: set[asyncio.Task[None]] = set()
+    rejections: set[asyncio.Task[None]] = set()
     management = ManagementServer(capability)
 
     async def handler(
         call: StreamInvoke, inputs: AsyncIterator[StreamFrame]
     ) -> AsyncGenerator[StreamFrame]:
         _ = inputs
+        if call.capability_id == published[4].id:
+            try:
+                proof = GatewayProof.model_validate_json(json.dumps(call.payload))
+            except ValueError:
+                yield StreamFrame(
+                    call_id=call.call_id,
+                    direction="provider_to_caller",
+                    sequence=1,
+                    kind="failed",
+                    error=StreamError(code="provider_error", message="policy_denied"),
+                )
+                return
+            sequence = 1
+            async with aclosing(gateway.generate(proof)) as events:
+                async for event in events:
+                    # Carry the common terminal as a validated chunk before the
+                    # transport terminal, retaining usage and finish reason.
+                    yield StreamFrame(
+                        call_id=call.call_id,
+                        direction="provider_to_caller",
+                        sequence=sequence,
+                        kind="chunk",
+                        payload=_OBJECT.validate_json(event.model_dump_json()),
+                    )
+                    sequence += 1
+            yield StreamFrame(
+                call_id=call.call_id,
+                direction="provider_to_caller",
+                sequence=sequence,
+                kind="completed",
+                payload={},
+            )
+            return
         try:
             signed = SignedInvocation.model_validate_json(json.dumps(call.payload))
         except (ValueError, TypeError):
@@ -252,9 +326,9 @@ async def serve(startup: Startup) -> None:
                     )
                 sequence += 1
 
-    async def serve_one(call: StreamInvoke) -> None:
+    async def serve_one(call: StreamInvoke, *, reject: bool = False) -> None:
         try:
-            await execute_stream(startup, call, handler)
+            await execute_stream(startup, call, overloaded if reject else handler)
         except (
             TimeoutError,
             asyncio.IncompleteReadError,
@@ -263,10 +337,24 @@ async def serve(startup: Startup) -> None:
         ):
             return
 
+    async def overloaded(
+        call: StreamInvoke, inputs: AsyncIterator[StreamFrame]
+    ) -> AsyncGenerator[StreamFrame]:
+        """Refuse excess work on its own channel without killing the child."""
+        _ = inputs
+        yield StreamFrame(
+            call_id=call.call_id,
+            direction="provider_to_caller",
+            sequence=1,
+            kind="failed",
+            error=StreamError(code="provider_error", message="overloaded"),
+        )
+
     async def catalog_worker() -> None:
         """Own bounded account metadata refresh, never generation or grant renewal."""
         while True:
-            await refresh_cached_catalog(provider)
+            if capability.enabled:
+                await refresh_cached_catalog(provider)
             await asyncio.sleep(30)
 
     try:
@@ -284,11 +372,7 @@ async def serve(startup: Startup) -> None:
             ),
         )
         async with asyncio.TaskGroup() as tasks:
-            refresh = (
-                tasks.create_task(catalog_worker())
-                if configuration.inference_enabled and not mock
-                else None
-            )
+            refresh = tasks.create_task(catalog_worker()) if not mock else None
             try:
                 while True:
                     message = await read_message(reader)
@@ -313,7 +397,7 @@ async def serve(startup: Startup) -> None:
                         expected = next(
                             (
                                 item
-                                for item in (published[0], published[2])
+                                for item in (published[0], published[2], published[3])
                                 if item.id == message.capability_id
                             ),
                             None,
@@ -330,14 +414,20 @@ async def serve(startup: Startup) -> None:
                                 error="invalid_payload",
                             )
                         else:
-                            value = (
-                                (await capability.discovery()).model_dump_json()
-                                if expected.id == published[0].id
-                                else Status(
+                            if expected.id == published[3].id:
+                                catalog = await gateway.catalog()
+                                value = (
+                                    catalog.model_dump_json()
+                                    if catalog is not None
+                                    else "{}"
+                                )
+                            elif expected.id == published[0].id:
+                                value = (await capability.discovery()).model_dump_json()
+                            else:
+                                value = Status(
                                     connection=(await sessions.status()).state,
                                     requests_started=provider.requests_started,
                                 ).model_dump_json()
-                            )
                             result = Result(
                                 call_id=message.call_id,
                                 payload=_OBJECT.validate_json(value),
@@ -345,19 +435,38 @@ async def serve(startup: Startup) -> None:
                             )
                         await write_message(writer, result)
                     elif isinstance(message, StreamInvoke):
-                        expected = published[1]
+                        expected = next(
+                            (
+                                item
+                                for item in (published[1], published[4])
+                                if item.id == message.capability_id
+                            ),
+                            None,
+                        )
                         if (
-                            message.capability_id != expected.id
+                            expected is None
                             or message.version != expected.version
                             or message.descriptor_revision != expected.revision
-                            or (execution is not None and not execution.done())
                         ):
-                            raise ProtocolError("invalid or overlapping managed stream")
-                        execution = tasks.create_task(serve_one(message))
+                            raise ProtocolError("invalid managed stream")
+                        if len(executions) >= 4:
+                            if len(rejections) < 4:
+                                rejection = tasks.create_task(
+                                    serve_one(message, reject=True)
+                                )
+                                rejections.add(rejection)
+                                rejection.add_done_callback(rejections.discard)
+                            # Further excess calls expire at their owner deadline;
+                            # never allocate unbounded rejection tasks or block
+                            # primary health/shutdown on a media handshake.
+                        else:
+                            execution = tasks.create_task(serve_one(message))
+                            executions.add(execution)
+                            execution.add_done_callback(executions.discard)
                     else:
                         raise ProtocolError("unexpected primary message")
             finally:
-                if execution is not None:
+                for execution in (*executions, *rejections):
                     execution.cancel()
                 if refresh is not None:
                     refresh.cancel()

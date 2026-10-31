@@ -28,6 +28,7 @@ from skulk_inference_reference.routing import rejection_reasons
 from .auth_contracts import PLAN_SCOPE, AuthFailure, TokenSet
 from .credentials import CredentialStore
 from .provider import CatalogSnapshot
+from .settings import IntegrationSettings
 
 
 @final
@@ -149,6 +150,9 @@ class GrantStore:
                     id TEXT PRIMARY KEY, policy TEXT NOT NULL,
                     remaining INTEGER NOT NULL, enabled INTEGER NOT NULL,
                     expires REAL NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS gateway_budget (
+                    hour INTEGER PRIMARY KEY, attempts INTEGER NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS grant_nonces (
                     grant_id TEXT NOT NULL, nonce TEXT NOT NULL,
@@ -287,19 +291,59 @@ class GrantStore:
                 now = self.clock()
                 if not now < invocation.expires_at <= now + 60:
                     raise AuthFailure("permission_missing")
+                saved = connection.execute(
+                    "SELECT value FROM metadata WHERE key='integration_settings'"
+                ).fetchone()
+                settings = (
+                    IntegrationSettings.model_validate_json(str(saved[0]))
+                    if saved is not None
+                    else None
+                )
+                if settings is not None and not (
+                    settings.inference_enabled
+                    and settings.processing == "allow_openai"
+                    and settings.usage == "app_settings"
+                    and invocation.model in settings.models
+                ):
+                    raise AuthFailure("permission_missing")
                 authority = Authority(
                     principal=grant.grant_id,
                     revision=grant.generation,
                     allowed_offers=frozenset({offer.offer_id}),
                     allowed_domains=frozenset({"external"}),
                     allowed_usage=frozenset({"unknown"}),
-                    maximum_output_characters=grant.maximum_output_characters,
+                    maximum_output_characters=min(
+                        grant.maximum_output_characters,
+                        settings.maximum_output_characters
+                        if settings is not None
+                        else grant.maximum_output_characters,
+                    ),
                     expires_at=grant.expires_at,
                 )
                 if rejection_reasons(
                     offer, invocation.request, invocation.requirements, authority, now
                 ):
                     raise AuthFailure("permission_missing")
+                if settings is not None:
+                    # Both callable surfaces share the owner's attempt budget;
+                    # policy, nonce and budget commit under the same write lock.
+                    hour = int(now // 3600)
+                    connection.execute(
+                        "DELETE FROM gateway_budget WHERE hour<?", (hour - 24,)
+                    )
+                    budget = connection.execute(
+                        "SELECT attempts FROM gateway_budget WHERE hour=?", (hour,)
+                    ).fetchone()
+                    if (
+                        budget is not None
+                        and int(budget[0]) >= settings.maximum_requests_per_hour
+                    ):
+                        raise AuthFailure("permission_missing")
+                    connection.execute(
+                        "INSERT INTO gateway_budget VALUES (?, 1) ON CONFLICT(hour) "
+                        "DO UPDATE SET attempts=attempts+1",
+                        (hour,),
+                    )
                 connection.execute(
                     "INSERT INTO grant_nonces VALUES (?, ?)",
                     (grant.grant_id, invocation.nonce),
