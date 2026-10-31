@@ -2,6 +2,11 @@ package = "skulk_openai"
 package_root = "src/skulk_openai"
 entry = "skulk_openai.managed"
 validator = "skulk_openai.managed:validate_manifest"
+dependencies = ["PyJWT>=2.10,<3"]
+
+[[source_packages]]
+package = "skulk_inference_reference"
+package_root = "src/skulk_inference_reference"
 
 [entrypoints]
 __setup__ = "skulk_openai.setup:main"

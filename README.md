@@ -17,8 +17,10 @@ The [caller-grant experiment](docs/caller-grants.md) adds capability-owned signi
 keys, finite admission budgets and durable replay fences. Its standalone
 `InferenceCapability` boundary enforces hard policy before the HTTP client.
 The [managed account child](docs/managed-capability.md) consumes public SDK
-interfaces and has been exercised through an isolated actual owner/core adapter.
-Signed installation, real-provider and distributed qualification remain open.
+interfaces. Maintainer qualification has exercised live requests, isolated signed
+installation, and Core selection/launch of the installed SDK owner. Those local
+proofs use an explicit test host attestation; public distribution, clean-author
+reproduction and distributed qualification remain open.
 
 ## Try the offline example
 
@@ -63,10 +65,10 @@ remain future work. See [contract](docs/contract.md) and
 
 The offline demo's grants are trusted in-process test inputs. The separate
 capability-owned signing experiment does not establish authenticated human caller
-propagation in the SDK. Real accounts must not be made callable until protected
-credentials and caller authority are enforced across fabric entry paths. Actual
-account consent, live inference, publication and installed qualification remain
-open work.
+propagation in the SDK. Protected credentials and caller authority must be
+enforced across every fabric entry path.
+Live requests require explicit account consent and a finite signed caller grant.
+Published packages, upgrade/rollback and cross-node qualification remain open.
 
 This reference is Apache-2.0 licensed. The capability SDK has its own license and
 is not included here. OpenAI is a separate service; this repository is not an

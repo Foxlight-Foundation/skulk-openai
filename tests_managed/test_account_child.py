@@ -12,6 +12,7 @@ from skulk_capability_sdk.wire import read_message, write_message
 
 from skulk_openai.admission import CallerCredential, SignedInvocation
 from skulk_openai.credentials import CredentialStore
+from skulk_openai.managed import build_manifest, validate_manifest
 from skulk_openai.provider import CatalogSnapshot
 from tests.test_admission import invocation, prepared
 from tests.test_sessions import Clock
@@ -19,6 +20,27 @@ from tests_managed.test_child import Child, health, managed_child
 
 pytestmark = pytest.mark.managed
 _OBJECT = TypeAdapter(dict[str, JsonValue])
+
+
+@pytest.mark.parametrize("mock", [False, True])
+def test_publishing_manifest_declares_its_runtime_root(mock: bool) -> None:
+    """The public factory binds profile, effect, schemas and dependency identity."""
+    manifest = build_manifest(
+        executable="bundle.pyz", executable_sha256="0" * 64, mock=mock
+    )
+    validate_manifest(manifest)
+    assert manifest.bundle_id == (
+        "reference.openai.mock" if mock else "reference.openai"
+    )
+    assert manifest.runtime_dependencies == ("pyjwt",)
+    assert manifest.arguments == () and manifest.effect == "governed"
+
+
+def test_publishing_manifest_refuses_a_missing_runtime_root() -> None:
+    """Removing the declared library cannot leave a superficially valid bundle."""
+    manifest = build_manifest(executable="bundle.pyz", executable_sha256="0" * 64)
+    with pytest.raises(ValueError, match="capability contract"):
+        validate_manifest(manifest.model_copy(update={"runtime_dependencies": ()}))
 
 
 async def test_disconnected_live_profile_owns_idle_worker_and_shuts_down(

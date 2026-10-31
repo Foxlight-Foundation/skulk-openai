@@ -4,7 +4,9 @@
 SDK's public `contracts`, `storage`, `wire` and `streams` modules. The SDK is a
 separate licensed dependency; its implementation is not vendored here. Obtain a
 compatible SDK through the supported distribution/access process. This slice
-was exercised with author SDK 0.5.0, protocol 4.
+was originally exercised with author SDK 0.5.0, protocol 4. The managed account
+capability and its publishing factory require author SDK 0.5.1 or newer; the
+explicit suite also passes with that candidate.
 
 In this repository's isolated development environment, install the licensed SDK
 package you obtained, then explicitly run:

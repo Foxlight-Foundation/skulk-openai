@@ -97,6 +97,27 @@ def descriptors(*, mock: bool = False) -> tuple[Descriptor, ...]:
     )
 
 
+def build_manifest(
+    *, executable: str, executable_sha256: str, mock: bool = False
+) -> Manifest:
+    """Build the governed publishing contract using author SDK 0.5.1 or newer.
+
+    The publisher replaces the placeholder artifact digest with its measured
+    bytes. Account state stays outside both the manifest and generation.
+    """
+    return Manifest(
+        bundle_id="reference.openai.mock" if mock else "reference.openai",
+        bundle_version="0.1.0",
+        executable=executable,
+        executable_sha256=executable_sha256,
+        arguments=(),
+        descriptors=descriptors(mock=mock),
+        effect="governed",
+        configuration_schema=Configuration.model_json_schema(),
+        runtime_dependencies=("pyjwt",),
+    )
+
+
 def validate_manifest(manifest: Manifest) -> None:
     """Refuse schema/configuration drift and false read-only billing classification."""
     if (
@@ -105,6 +126,7 @@ def validate_manifest(manifest: Manifest) -> None:
         != descriptors(mock=manifest.bundle_id.endswith(".mock"))
         or manifest.configuration_schema != Configuration.model_json_schema()
         or manifest.credential_inputs
+        or manifest.runtime_dependencies != ("pyjwt",)
         or manifest.effect != "governed"
     ):
         raise ValueError("manifest does not match the capability contract")

@@ -107,6 +107,7 @@ async def managed_child(
             if guarded
             else None,
             effect="governed" if guarded else "read",
+            runtime_dependencies=("pyjwt",) if guarded else (),
         )
         startup = Startup(
             socket=str(root / "control"),
