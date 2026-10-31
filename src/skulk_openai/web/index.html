@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OpenAI · Skulk</title>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header><a class="brand" href="/" aria-label="Skulk OpenAI management"><span class="mark" aria-hidden="true"></span>Skulk</a><span class="muted">Managed capability</span></header>
+    <main>
+      <div class="intro"><div><h1>OpenAI</h1><p>Manage your connection and try a request.</p></div><div id="connection-badge" class="connection-badge" role="status"><span class="dot" aria-hidden="true"></span><span id="connection-label">Loading…</span></div></div>
+      <p id="notice" class="notice" role="status" hidden></p>
+      <section aria-labelledby="connection-title">
+        <div class="section-top"><h2 id="connection-title">Connection</h2><div class="actions"><button id="connect" disabled>Connect with ChatGPT</button><button id="disconnect" hidden>Disconnect</button></div></div>
+        <p id="connection-detail">Checking this host’s connection…</p><p class="muted">Credentials stay on this host.</p>
+        <div id="disconnect-confirmation" class="confirmation" hidden><p>Disconnect this account? New requests will be blocked and the active test will be cancelled.</p><div class="actions"><button id="confirm-disconnect" class="danger">Disconnect account</button><button id="keep-connected">Keep connected</button></div></div>
+      </section>
+      <section aria-labelledby="models-title">
+        <div class="section-top"><h2 id="models-title">Available models</h2><button class="text-button" id="refresh" disabled>Refresh models</button></div>
+        <label class="sr-only" for="model">Model</label><select id="model" disabled><option value="">Refresh models to see your choices</option></select>
+      </section>
+      <section class="request-section" aria-labelledby="request-title">
+        <h2 id="request-title">Try a request</h2>
+        <p id="inference-off" class="muted" hidden>Test requests are turned off for this capability.</p>
+        <form id="test-form">
+          <label for="prompt">Prompt</label><textarea id="prompt" maxlength="4096" required>Say hello in one sentence.</textarea>
+          <div class="policy-fields"><div><label for="processing">Processing</label><select id="processing"><option value="allow_openai">Allow OpenAI</option><option value="local_only">Local only</option></select></div><div><label for="usage">Usage</label><select id="usage"><option value="app_settings">Use app usage settings</option><option value="included_only">Included usage only</option></select></div></div>
+          <p class="hint" id="policy-hint">This sends your prompt to OpenAI. Usage follows your ChatGPT app settings.</p>
+          <div class="actions"><button class="primary" id="send" type="submit" disabled>Send test request</button><button id="cancel" type="button" disabled>Cancel</button></div>
+        </form>
+        <label for="response" class="response-label">Response</label><pre id="response" role="log" aria-live="polite" tabindex="0">Your response will appear here.</pre>
+        <p class="hint">Local-only policy blocks external requests before anything is sent.</p>
+        <p class="hint">These choices apply to this test. Routing for other apps stays as configured.</p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

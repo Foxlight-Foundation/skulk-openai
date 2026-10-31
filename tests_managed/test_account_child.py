@@ -4,9 +4,16 @@ import asyncio
 import secrets
 from pathlib import Path
 
+import httpx
 import pytest
 from pydantic import JsonValue, TypeAdapter
-from skulk_capability_sdk.contracts import Invoke, Result, StreamHello, StreamInvoke
+from skulk_capability_sdk.contracts import (
+    Health,
+    Invoke,
+    Result,
+    StreamHello,
+    StreamInvoke,
+)
 from skulk_capability_sdk.streams import StreamEnd, StreamFrame, read_packet
 from skulk_capability_sdk.wire import read_message, write_message
 
@@ -48,6 +55,46 @@ async def test_disconnected_live_profile_owns_idle_worker_and_shuts_down(
 ) -> None:
     root = tmp_path / "disconnected"
     assert CredentialStore(root).load() is None
+
+
+def test_publishing_manifest_refuses_an_undeclared_management_surface() -> None:
+    """Removing its UI declaration cannot leave a superficially valid bundle."""
+    manifest = build_manifest(executable="bundle.pyz", executable_sha256="0" * 64)
+    with pytest.raises(ValueError, match="capability contract"):
+        validate_manifest(manifest.model_copy(update={"surfaces": ()}))
+
+
+async def test_management_surface_survives_disabled_inference_and_withdraws_on_stop(
+    tmp_path: Path,
+) -> None:
+    """The actual child reports a credential-free URL and owns the listener."""
+    root = tmp_path / "disconnected-ui"
+    async with managed_child(
+        "mock-openai",
+        guarded=True,
+        enabled=False,
+        disconnected_live=True,
+        state_directory=root,
+    ) as child:
+        await write_message(child.writer, Health(nonce="ui", ready=False))
+        reply = await read_message(child.reader)
+        assert isinstance(reply, Health) and reply.ready
+        assert len(reply.surfaces) == 1
+        surface = reply.surfaces[0]
+        assert surface.surface_id == "management" and surface.ready
+        assert surface.url is not None and surface.url.startswith("http://127.0.0.1:")
+        assert "?" not in surface.url and "#" not in surface.url
+        async with httpx.AsyncClient(trust_env=False) as browser:
+            page = await browser.get(surface.url)
+            assert page.status_code == 200 and "Try a request" in page.text
+            state = (await browser.get(surface.url + "api/state")).json()
+            assert state["connection"] == "disconnected"
+            assert not state["inference_enabled"] and state["models"] == []
+        assert (await unary(child, 0))["offers"] == []
+        await health(child)
+    async with httpx.AsyncClient(trust_env=False) as browser:
+        with pytest.raises(httpx.ConnectError):
+            await browser.get(surface.url)
     async with managed_child(
         "mock-openai", guarded=True, disconnected_live=True, state_directory=root
     ) as child:

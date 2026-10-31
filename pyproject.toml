@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "skulk-openai"
-version = "0.1.0"
+version = "0.2.0"
 description = "Experimental managed inference capability learning reference"
 requires-python = ">=3.13"
 license = "Apache-2.0"
@@ -19,6 +19,7 @@ skulk-openai-demo = "skulk_openai.demo:main"
 skulk-openai-account = "skulk_openai.setup:main"
 skulk-openai-sign = "skulk_openai.caller:main"
 skulk-openai-capability = "skulk_openai.managed:main"
+skulk-openai-ui = "skulk_openai.ui:main"
 
 [dependency-groups]
 dev = ["basedpyright>=1.31,<2", "ruff>=0.13,<1", "pytest>=8.4,<10", "pytest-asyncio>=1.2,<2", "build>=1.3,<2", "jsonschema>=4.26,<5"]

@@ -13,3 +13,6 @@ __setup__ = "skulk_openai.setup:main"
 
 [data_files]
 LICENSE = "LICENSE"
+"skulk_openai/web/index.html" = "src/skulk_openai/web/index.html"
+"skulk_openai/web/app.css" = "src/skulk_openai/web/app.css"
+"skulk_openai/web/app.js" = "src/skulk_openai/web/app.js"

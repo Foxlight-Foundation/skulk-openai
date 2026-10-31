@@ -165,6 +165,27 @@ def setup(tmp_path: Path) -> tuple[SessionManager, Issuer, Clock]:
     return manager, issuer, clock
 
 
+async def test_closing_listener_discards_only_its_pending_attempt(
+    tmp_path: Path,
+) -> None:
+    manager, _, _ = setup(tmp_path)
+    retained = CallbackListener(manager)
+    await retained.start()
+    assert retained.attempt is not None
+    try:
+        for _ in range(8):
+            abandoned = CallbackListener(manager)
+            await abandoned.start()
+            assert abandoned.attempt is not None
+            assert manager.client.is_pending(abandoned.attempt)
+            await abandoned.close()
+            assert not manager.client.is_pending(abandoned.attempt)
+            assert manager.client.is_pending(retained.attempt)
+    finally:
+        await retained.close()
+    assert not manager.client.is_pending(retained.attempt)
+
+
 async def connect(
     manager: SessionManager, issuer: Issuer, *, registration_id: str | None = None
 ) -> None:

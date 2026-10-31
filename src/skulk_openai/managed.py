@@ -21,6 +21,8 @@ from skulk_capability_sdk.contracts import (
     Shutdown,
     Startup,
     StreamInvoke,
+    Surface,
+    SurfaceReport,
     manifest_digest,
 )
 from skulk_capability_sdk.storage import read_startup
@@ -33,12 +35,18 @@ from .admission import SignedInvocation
 from .auth_contracts import AuthFailure
 from .capability import InferenceCapability, InferenceDiscovery
 from .credentials import CredentialStore, default_state_directory
+from .management import ManagementServer
 from .oauth import OAuthClient
 from .provider import ProviderClient, ProviderFailure, refresh_cached_catalog
 from .responses import event_bytes
 from .sessions import SessionManager
 
 _OBJECT = TypeAdapter(dict[str, JsonValue])
+
+
+def management_surfaces() -> tuple[Surface, ...]:
+    """Declare the owner-local UI using the existing generic link contract."""
+    return (Surface(surface_id="management", title="OpenAI", kind="link"),)
 
 
 class Configuration(FrozenContract):
@@ -107,7 +115,7 @@ def build_manifest(
     """
     return Manifest(
         bundle_id="reference.openai.mock" if mock else "reference.openai",
-        bundle_version="0.1.0",
+        bundle_version="0.2.0",
         executable=executable,
         executable_sha256=executable_sha256,
         arguments=(),
@@ -115,6 +123,7 @@ def build_manifest(
         effect="governed",
         configuration_schema=Configuration.model_json_schema(),
         runtime_dependencies=("pyjwt",),
+        surfaces=management_surfaces(),
     )
 
 
@@ -128,6 +137,7 @@ def validate_manifest(manifest: Manifest) -> None:
         or manifest.credential_inputs
         or manifest.runtime_dependencies != ("pyjwt",)
         or manifest.effect != "governed"
+        or manifest.surfaces != management_surfaces()
     ):
         raise ValueError("manifest does not match the capability contract")
 
@@ -193,6 +203,7 @@ async def serve(startup: Startup) -> None:
     )
     reader, writer = await asyncio.open_unix_connection(startup.socket)
     execution: asyncio.Task[None] | None = None
+    management = ManagementServer(capability)
 
     async def handler(
         call: StreamInvoke, inputs: AsyncIterator[StreamFrame]
@@ -259,6 +270,7 @@ async def serve(startup: Startup) -> None:
             await asyncio.sleep(30)
 
     try:
+        await management.start()
         await write_message(
             writer,
             Hello(
@@ -284,7 +296,18 @@ async def serve(startup: Startup) -> None:
                         return
                     if isinstance(message, Health):
                         await write_message(
-                            writer, Health(nonce=message.nonce, ready=True)
+                            writer,
+                            Health(
+                                nonce=message.nonce,
+                                ready=True,
+                                surfaces=(
+                                    SurfaceReport(
+                                        surface_id="management",
+                                        ready=True,
+                                        url=management.url + "/",
+                                    ),
+                                ),
+                            ),
                         )
                     elif isinstance(message, Invoke):
                         expected = next(
@@ -339,6 +362,7 @@ async def serve(startup: Startup) -> None:
                 if refresh is not None:
                     refresh.cancel()
     finally:
+        await management.close()
         writer.close()
         await writer.wait_closed()
 
