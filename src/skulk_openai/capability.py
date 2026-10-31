@@ -48,15 +48,24 @@ class InferenceCapability:
         self.callable_id = callable_id
         self.descriptor_revision = descriptor_revision
         self.settings = SettingsStore(provider.sessions.store)
-        # A saved owner choice takes precedence over the legacy startup default.
-        self.enabled = (
-            self.settings.read().inference_enabled
-            if self.settings.configured()
-            else enabled
-        )
+        self._startup_enabled = enabled
         self.clock = clock
         self.grants = GrantStore(provider.sessions.store, clock=clock)
         self.cache = CatalogCache(provider.sessions)
+
+    @property
+    def enabled(self) -> bool:
+        """Use current saved owner policy, or the legacy startup default."""
+        return (
+            self.settings.read().inference_enabled
+            if self.settings.configured()
+            else self._startup_enabled
+        )
+
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        """Update the legacy default without overriding a persisted owner choice."""
+        self._startup_enabled = value
 
     async def current_catalog(self) -> CatalogSnapshot | None:
         """Read a fresh account-bound catalog without contacting the provider."""

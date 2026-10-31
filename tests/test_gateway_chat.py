@@ -362,3 +362,20 @@ async def test_saved_enablement_overrides_startup_after_restart(
     events = [event async for event in restarted.generate(signed)]
     assert events[-1].kind == ("completed" if saved_enabled else "failed")
     assert restarted.provider.requests_started == int(saved_enabled)
+
+
+async def test_saved_disable_is_observed_by_an_already_running_capability(
+    tmp_path: Path,
+) -> None:
+    """A separate settings process withdraws discovery and legacy signed calls."""
+    capability, credential, catalog, _, clock = await prepared(tmp_path)
+    other_process = SettingsStore(capability.provider.sessions.store)
+    other_process.save(IntegrationSettings(inference_enabled=True))
+    assert capability.enabled
+    other_process.save(IntegrationSettings(inference_enabled=False))
+    assert not capability.enabled and not (await capability.discovery()).offers
+    events = [
+        e
+        async for e in capability.generate(credential.sign(invocation(catalog, clock)))
+    ]
+    assert events[-1].kind == "failed" and capability.provider.requests_started == 0
