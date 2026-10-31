@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import aclosing
 from typing import Literal
@@ -15,10 +16,29 @@ _JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 MAX_EVENT_BYTES = 16_384
 MAX_STREAM_BYTES = 262_144
 MAX_EVENTS = 256
+_LOGGER = logging.getLogger(__name__)
+StreamFailureReason = Literal[
+    "duplicate event key",
+    "nonfinite event value",
+    "stream exceeds byte bound",
+    "event exceeds byte bound",
+    "too many events",
+    "invalid event JSON",
+    "unterminated event",
+    "expected event stream",
+    "event follows terminal",
+    "invalid text delta",
+    "unsupported stream event",
+]
 
 
 class InvalidResponseStream(Exception):
-    """An upstream fixture exceeded the bounded text-only reference contract."""
+    """An upstream response violated the bounded text-only reference contract."""
+
+    def __init__(self, reason: StreamFailureReason) -> None:
+        """Retain a fixed diagnostic category, never response contents."""
+        super().__init__(reason)
+        self.reason = reason
 
 
 def _unique_object(pairs: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
@@ -149,7 +169,12 @@ async def response_events(
                 ):
                     raise InvalidResponseStream("unsupported stream event")
         yield terminal or GenerationEvent(kind="failed", error="interrupted")
-    except (InvalidResponseStream, httpx.HTTPError, UnicodeError, TimeoutError):
+    except InvalidResponseStream as error:
+        # Keep caller errors stable while giving the owner a content-free cause.
+        _LOGGER.warning("Responses stream rejected: %s", error.reason)
+        yield GenerationEvent(kind="failed", error="invalid_stream")
+    except (httpx.HTTPError, UnicodeError, TimeoutError):
+        _LOGGER.warning("Responses stream read failed")
         yield GenerationEvent(kind="failed", error="invalid_stream")
 
 
