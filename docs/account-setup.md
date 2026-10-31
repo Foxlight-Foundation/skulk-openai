@@ -95,6 +95,10 @@ message history, no redirects and no automatic retry. Expired choices, unavailab
 models and an account-generation mismatch fail before prompt submission. A remote
 revocation may be learned only when the provider rejects a request. Cancellation
 closes the owned HTTP stream; it does not prove upstream work or charging stopped.
+If the adapter reports `invalid_stream`, owner logs include a fixed rejection
+category such as an event exceeding its byte limit. These diagnostics exclude
+upstream event names, bodies, headers and credentials. Diagnose the category
+before explicitly approving another request; the probe never retries itself.
 
 These primitives are owner-local. They are not fabric handlers and do not accept
 or create caller grants. Production capability admission must independently

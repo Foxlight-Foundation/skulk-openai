@@ -127,6 +127,38 @@ async def test_invalid_or_unsupported_events_fail_closed(body: bytes) -> None:
     assert stream.closed
 
 
+@pytest.mark.parametrize(
+    "body,reason",
+    [
+        (
+            b"data: " + b"x" * (MAX_EVENT_BYTES + 1) + b"\n\n",
+            "event exceeds byte bound",
+        ),
+        (
+            event_bytes(
+                {"type": "private-event-name", "message": "private response body"}
+            ),
+            "unsupported stream event",
+        ),
+        (b'data: {"private-response-body":\n\n', "invalid event JSON"),
+    ],
+)
+async def test_owner_diagnostic_contains_only_a_fixed_failure_reason(
+    body: bytes, reason: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    stream = Fragments((body,))
+
+    events = [
+        item
+        async for item in adapter_for(stream).generate(request(), model="synthetic")
+    ]
+
+    assert len(events) == 1 and events[0].error == "invalid_stream"
+    assert caplog.messages == ["Responses stream rejected: " + reason]
+    assert "private" not in caplog.text
+    assert stream.closed
+
+
 async def test_output_limit_closes_without_replay() -> None:
     stream = Fragments(
         (event_bytes({"type": "response.output_text.delta", "delta": "too long"}),)
