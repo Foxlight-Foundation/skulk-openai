@@ -99,6 +99,12 @@ If the adapter reports `invalid_stream`, owner logs include a fixed rejection
 category such as an event exceeding its byte limit. These diagnostics exclude
 upstream event names, bodies, headers and credentials. Diagnose the category
 before explicitly approving another request; the probe never retries itself.
+Some plan-usage responses omit `Content-Type`. The adapter still requires valid
+bounded SSE and an explicit terminal event in that case; it rejects explicitly
+different media types and never falls back to accepting a JSON response.
+`response.metadata` events are validated and counted against the stream bounds,
+then discarded. They cannot produce text, establish completion, authorize calls
+or prove a usage/billing guarantee.
 
 These primitives are owner-local. They are not fabric handlers and do not accept
 or create caller grants. Production capability admission must independently

@@ -117,8 +117,13 @@ async def response_events(
         if response.status_code != 200:
             yield GenerationEvent(kind="failed", error="upstream_failed")
             return
-        media_type = response.headers.get("content-type", "").split(";")[0]
-        if media_type != "text/event-stream":
+        media_type = (
+            response.headers.get("content-type", "").split(";")[0].strip().lower()
+        )
+        # The plan-usage endpoint can omit Content-Type for a valid SSE body.
+        # Missing metadata still requires strict framing and explicit completion;
+        # an explicitly different media type never enables a JSON fallback.
+        if media_type and media_type != "text/event-stream":
             raise InvalidResponseStream("expected event stream")
         async with aclosing(server_events(response)) as events:
             while True:
@@ -158,6 +163,10 @@ async def response_events(
                         else "upstream_failed"
                     )
                     terminal = GenerationEvent(kind="failed", error=code)
+                elif event_type == "response.metadata":
+                    # Plan-usage streams include opaque provider metadata. Count
+                    # and validate it, but never treat it as text or authority.
+                    continue
                 elif event_type not in (
                     "response.created",
                     "response.in_progress",
