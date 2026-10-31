@@ -11,13 +11,14 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import JsonValue, TypeAdapter
 
 from skulk_inference_reference.chat import GatewayInvocation, GatewayProof
+from skulk_openai.capability import InferenceCapability
 from skulk_openai.chat_request import ChatRequest
 from skulk_openai.chat_stream import chat_events
 from skulk_openai.gateway import GatewayService
 from skulk_openai.management import ManagementServer
 from skulk_openai.responses import event_bytes
 from skulk_openai.settings import IntegrationSettings, SettingsStore, account_binding
-from tests.test_admission import prepared
+from tests.test_admission import invocation, prepared
 from tests.test_management import browser
 
 
@@ -337,3 +338,27 @@ async def test_model_features_require_both_provider_declaration_and_owner_permis
     assert catalog is not None
     assert catalog.models[0].features == ("image_input", "function_tools")
     assert catalog.models[1].features == ()
+
+
+@pytest.mark.parametrize("saved_enabled", [False, True])
+@pytest.mark.parametrize("startup_enabled", [False, True])
+async def test_saved_enablement_overrides_startup_after_restart(
+    tmp_path: Path, saved_enabled: bool, startup_enabled: bool
+) -> None:
+    """A saved disable survives both UI and managed startup enable flags."""
+    original, credential, catalog, _, clock = await prepared(tmp_path)
+    original.settings.save(IntegrationSettings(inference_enabled=saved_enabled))
+    restarted = InferenceCapability(
+        original.provider,
+        target_node=original.target_node,
+        callable_id=original.callable_id,
+        descriptor_revision=original.descriptor_revision,
+        enabled=startup_enabled,
+        clock=clock,
+    )
+    assert restarted.enabled is saved_enabled
+    assert bool((await restarted.discovery()).offers) is saved_enabled
+    signed = credential.sign(invocation(catalog, clock))
+    events = [event async for event in restarted.generate(signed)]
+    assert events[-1].kind == ("completed" if saved_enabled else "failed")
+    assert restarted.provider.requests_started == int(saved_enabled)

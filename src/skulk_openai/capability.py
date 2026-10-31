@@ -48,7 +48,12 @@ class InferenceCapability:
         self.callable_id = callable_id
         self.descriptor_revision = descriptor_revision
         self.settings = SettingsStore(provider.sessions.store)
-        self.enabled = enabled or self.settings.read().inference_enabled
+        # A saved owner choice takes precedence over the legacy startup default.
+        self.enabled = (
+            self.settings.read().inference_enabled
+            if self.settings.configured()
+            else enabled
+        )
         self.clock = clock
         self.grants = GrantStore(provider.sessions.store, clock=clock)
         self.cache = CatalogCache(provider.sessions)

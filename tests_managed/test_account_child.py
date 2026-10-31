@@ -401,3 +401,111 @@ async def test_overlapping_streams_keep_the_child_healthy(tmp_path: Path) -> Non
         ]
         await health(child)
         assert (await unary(child, 2))["requests_started"] == 2
+
+
+@pytest.mark.parametrize("failure", [TimeoutError, ConnectionResetError])
+async def test_overload_media_failure_preserves_active_calls_and_primary_health(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: type[Exception]
+) -> None:
+    """Stalled/rejected media never blocks primary health or cancels other calls."""
+    import tempfile
+
+    from skulk_capability_sdk.contracts import Hello, Shutdown, Startup
+    from skulk_capability_sdk.streams import StreamHandler
+
+    from skulk_openai import managed
+
+    entered: asyncio.Queue[str] = asyncio.Queue()
+    rejected: asyncio.Queue[str] = asyncio.Queue()
+    release_rejections = asyncio.Event()
+    active = asyncio.Event()
+    normal_cancelled: set[str] = set()
+
+    async def exchange(
+        startup: Startup, call: StreamInvoke, handler: StreamHandler
+    ) -> None:
+        _ = startup, handler
+        entered.put_nowait(call.call_id)
+        if int(call.call_id) > 4:
+            await release_rejections.wait()
+            rejected.put_nowait(call.call_id)
+            raise failure()
+        try:
+            await active.wait()
+        except asyncio.CancelledError:
+            normal_cancelled.add(call.call_id)
+            raise
+
+    monkeypatch.setattr(managed, "execute_stream", exchange)
+    connections: asyncio.Queue[tuple[asyncio.StreamReader, asyncio.StreamWriter]] = (
+        asyncio.Queue()
+    )
+    with tempfile.TemporaryDirectory(prefix="skulk-overload-", dir="/tmp") as directory:
+        socket = Path(directory) / "control"
+        server = await asyncio.start_unix_server(
+            lambda reader, writer: connections.put_nowait((reader, writer)), socket
+        )
+        manifest = build_manifest(
+            executable="bundle.pyz", executable_sha256="0" * 64, mock=True
+        )
+        startup = Startup(
+            socket=str(socket),
+            stream_socket=str(Path(directory) / "media"),
+            token="1" * 64,
+            host_id="synthetic-host",
+            transport_id="synthetic-node",
+            node_id="reference.openai.mock",
+            manifest=manifest,
+            configuration={
+                "state_directory": str(tmp_path),
+                "inference_enabled": False,
+            },
+        )
+        child = asyncio.create_task(managed.serve(startup))
+        writer: asyncio.StreamWriter | None = None
+        try:
+            reader, writer = await asyncio.wait_for(connections.get(), 2)
+            assert isinstance(await read_message(reader), Hello)
+            descriptor = manifest.descriptors[1]
+            for index in range(1, 10):
+                await write_message(
+                    writer,
+                    StreamInvoke(
+                        call_id=str(index),
+                        capability_id=descriptor.id,
+                        version=descriptor.version,
+                        descriptor_revision=descriptor.revision,
+                        remaining_seconds=3.0,
+                        payload={},
+                    ),
+                )
+                if index < 9:
+                    assert await asyncio.wait_for(entered.get(), 1) == str(index)
+            # Four normal executions and at most four rejection exchanges.
+            # The ninth invocation must not allocate another task.
+            await write_message(writer, Health(nonce="overloaded", ready=False))
+            reply = await asyncio.wait_for(read_message(reader), 1)
+            assert (
+                isinstance(reply, Health)
+                and reply.ready
+                and reply.nonce == "overloaded"
+            )
+            assert entered.empty() and not normal_cancelled
+            release_rejections.set()
+            for _ in range(4):
+                await asyncio.wait_for(rejected.get(), 1)
+            await write_message(writer, Health(nonce="after-failure", ready=False))
+            reply = await asyncio.wait_for(read_message(reader), 1)
+            assert isinstance(reply, Health) and reply.nonce == "after-failure"
+            assert not normal_cancelled and not child.done()
+            await write_message(writer, Shutdown())
+            await asyncio.wait_for(child, 2)
+            assert normal_cancelled == {"1", "2", "3", "4"}
+        finally:
+            child.cancel()
+            await asyncio.gather(child, return_exceptions=True)
+            if writer is not None:
+                writer.close()
+                await writer.wait_closed()
+            server.close()
+            await server.wait_closed()

@@ -243,6 +243,7 @@ async def serve(startup: Startup) -> None:
     )
     reader, writer = await asyncio.open_unix_connection(startup.socket)
     executions: set[asyncio.Task[None]] = set()
+    rejections: set[asyncio.Task[None]] = set()
     management = ManagementServer(capability)
 
     async def handler(
@@ -325,9 +326,9 @@ async def serve(startup: Startup) -> None:
                     )
                 sequence += 1
 
-    async def serve_one(call: StreamInvoke) -> None:
+    async def serve_one(call: StreamInvoke, *, reject: bool = False) -> None:
         try:
-            await execute_stream(startup, call, handler)
+            await execute_stream(startup, call, overloaded if reject else handler)
         except (
             TimeoutError,
             asyncio.IncompleteReadError,
@@ -449,7 +450,15 @@ async def serve(startup: Startup) -> None:
                         ):
                             raise ProtocolError("invalid managed stream")
                         if len(executions) >= 4:
-                            await execute_stream(startup, message, overloaded)
+                            if len(rejections) < 4:
+                                rejection = tasks.create_task(
+                                    serve_one(message, reject=True)
+                                )
+                                rejections.add(rejection)
+                                rejection.add_done_callback(rejections.discard)
+                            # Further excess calls expire at their owner deadline;
+                            # never allocate unbounded rejection tasks or block
+                            # primary health/shutdown on a media handshake.
                         else:
                             execution = tasks.create_task(serve_one(message))
                             executions.add(execution)
@@ -457,7 +466,7 @@ async def serve(startup: Startup) -> None:
                     else:
                         raise ProtocolError("unexpected primary message")
             finally:
-                for execution in tuple(executions):
+                for execution in (*executions, *rejections):
                     execution.cancel()
                 if refresh is not None:
                     refresh.cancel()
