@@ -191,6 +191,8 @@ class CallbackListener:
 
     async def close(self) -> None:
         """Close the listener and join or cancel every accepted connection task."""
+        if self.attempt is not None:
+            self.manager.client.discard(self.attempt)
         if self.server is not None:
             self.server.close()
             await self.server.wait_closed()

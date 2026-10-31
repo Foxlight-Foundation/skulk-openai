@@ -134,7 +134,14 @@ class ManagementServer:
                 or not length.isdecimal()
                 or int(length) > 16384
                 or "transfer-encoding" in headers
-                or headers.get("host") != self.url.removeprefix("http://")
+            ):
+                raise ValueError("invalid framing")
+            # Drain only a validated bounded body before refusing its origin.
+            # Closing with unread TCP bytes can reset the connection and hide
+            # an otherwise complete refusal response from the browser.
+            body = await reader.readexactly(int(length))
+            if (
+                headers.get("host") != self.url.removeprefix("http://")
                 or _FORWARDED.intersection(headers)
                 or (
                     headers.get("sec-fetch-site") == "cross-site"
@@ -151,9 +158,7 @@ class ManagementServer:
                 or "#" in path
             ):
                 raise ValueError("invalid request")
-            return _Request(
-                method, path, headers, await reader.readexactly(int(length))
-            )
+            return _Request(method, path, headers, body)
 
     def _authorized(self, request: _Request) -> bool:
         cookies = [
@@ -369,23 +374,28 @@ class ManagementServer:
                 await self._json(writer, {"error": "busy"}, status=409)
                 return
             await self._headers(writer, 200, "application/x-ndjson", length=None)
-            self._generation = asyncio.create_task(self._stream(writer, payload))
+            generation = asyncio.create_task(self._stream(writer, payload))
+            self._generation = generation
             disconnected = asyncio.create_task(reader.read(1))
             try:
                 done, _ = await asyncio.wait(
-                    (self._generation, disconnected),
+                    (generation, disconnected),
                     return_when=asyncio.FIRST_COMPLETED,
                 )
                 if disconnected in done:
-                    self._generation.cancel()
-                await self._generation
+                    generation.cancel()
+                await generation
             finally:
                 disconnected.cancel()
                 await asyncio.gather(disconnected, return_exceptions=True)
-                if not self._generation.done():
-                    if not self._generation.cancelling():
-                        self._generation.cancel()
-                    await asyncio.gather(self._generation, return_exceptions=True)
+                # A new browser call may start as soon as this generation is
+                # done. This handler must never await or cancel its successor.
+                if not generation.done():
+                    if not generation.cancelling():
+                        generation.cancel()
+                    await asyncio.gather(generation, return_exceptions=True)
+                if self._generation is generation:
+                    self._generation = None
             return
         if request.path == "/api/connect":
             payload = ConnectRequest.model_validate_json(request.body)

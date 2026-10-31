@@ -284,11 +284,13 @@ class SlowText(httpx.AsyncByteStream):
     def __init__(self) -> None:
         self.entered = asyncio.Event()
         self.closed = asyncio.Event()
+        self.release = asyncio.Event()
 
     async def __aiter__(self) -> AsyncGenerator[bytes]:
         yield event_bytes({"type": "response.output_text.delta", "delta": "first"})
         self.entered.set()
-        await asyncio.Event().wait()
+        await self.release.wait()
+        yield event_bytes({"type": "response.completed"})
 
     async def aclose(self) -> None:
         self.closed.set()
@@ -394,6 +396,89 @@ async def test_dashboard_navigation_cannot_authorize_cross_site_actions(
         ).status_code == 400
         assert (await capability.provider.sessions.status()).state == "authorized"
         assert len(api.calls) == 1
+
+
+async def test_repeated_abandoned_reconnects_do_not_exhaust_sign_in(
+    tmp_path: Path,
+) -> None:
+    capability, _, _, api, _ = await prepared(tmp_path)
+    async with browser(ManagementServer(capability)) as client:
+        urls: set[str] = set()
+        for _ in range(8):
+            result = await client.post("/api/connect", json={})
+            assert result.status_code == 200
+            url = result.json()["launch_url"]
+            assert url not in urls
+            urls.add(url)
+            assert (await capability.provider.sessions.status()).state == "authorized"
+        assert len(api.calls) == 1
+
+
+async def test_previous_browser_cleanup_cannot_cancel_a_successor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    capability, _, catalog, _, _ = await prepared(tmp_path)
+    joining = asyncio.Event()
+    release_cleanup = asyncio.Event()
+    delayed = False
+    read = asyncio.StreamReader.read
+
+    async def delayed_read(reader: asyncio.StreamReader, n: int = -1) -> bytes:
+        nonlocal delayed
+        try:
+            return await read(reader, n)
+        except asyncio.CancelledError:
+            # Delay the old HTTP connection's cleanup after its generation
+            # completed, while a second real HTTP request starts streaming.
+            if n == 1 and not delayed:
+                delayed = True
+                joining.set()
+                await release_cleanup.wait()
+            raise
+
+    monkeypatch.setattr(asyncio.StreamReader, "read", delayed_read)
+    second_stream = SlowText()
+    starts = 0
+
+    def respond(_: httpx.Request) -> httpx.Response:
+        nonlocal starts
+        starts += 1
+        if starts == 1:
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                content=event_bytes({"type": "response.completed"}),
+            )
+        return httpx.Response(
+            200, headers={"content-type": "text/event-stream"}, stream=second_stream
+        )
+
+    capability.provider.transport = httpx.MockTransport(respond)
+    async with browser(ManagementServer(capability)) as client:
+        first = asyncio.create_task(
+            client.post("/api/generate", json=payload(catalog.revision))
+        )
+        second: asyncio.Task[httpx.Response] | None = None
+        try:
+            await asyncio.wait_for(joining.wait(), 2)
+            second = asyncio.create_task(
+                client.post("/api/generate", json=payload(catalog.revision))
+            )
+            await asyncio.wait_for(second_stream.entered.wait(), 2)
+            release_cleanup.set()
+            assert '"kind":"completed"' in (await asyncio.wait_for(first, 2)).text
+            assert (await client.get("/api/state")).json()["busy"]
+            second_stream.release.set()
+            response = await asyncio.wait_for(second, 2)
+            assert '"kind":"completed"' in response.text
+            assert '"kind":"failed"' not in response.text
+            assert starts == 2
+        finally:
+            release_cleanup.set()
+            second_stream.release.set()
+            await asyncio.gather(
+                first, *(() if second is None else (second,)), return_exceptions=True
+            )
 
 
 @pytest.mark.parametrize(

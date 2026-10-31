@@ -293,6 +293,12 @@ class OAuthClient:
             and attempt.expires_at > self.clock()
         )
 
+    def discard(self, attempt: AuthorizationAttempt) -> None:
+        """Invalidate this exact abandoned attempt without consuming another flow."""
+        state = attempt.state.get_secret_value()
+        if self._pending.get(state) is attempt:
+            del self._pending[state]
+
     async def exchange(
         self, attempt: AuthorizationAttempt, code: str, client_id: str
     ) -> tuple[TokenResponse, dict[str, JsonValue]]:
