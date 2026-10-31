@@ -22,6 +22,10 @@ from .auth_contracts import AuthFailure, Registration
 from .responses import response_events
 from .sessions import SessionManager
 
+# The upstream catalog includes large model instructions that we discard. Its
+# download ceiling must be separate from the compact persisted snapshot limit.
+_MAX_CATALOG_RESPONSE_BYTES = 1024 * 1024
+
 
 class ProviderFailure(Exception):
     """A content-free catalog outcome, never an upstream response body."""
@@ -122,7 +126,7 @@ class ProviderClient:
                             raise ProviderFailure("catalog_unavailable")
                         raw = bytearray()
                         async for chunk in response.aiter_bytes():
-                            if len(raw) + len(chunk) > 65536:
+                            if len(raw) + len(chunk) > _MAX_CATALOG_RESPONSE_BYTES:
                                 raise ProviderFailure("invalid_catalog")
                             raw.extend(chunk)
             parsed = CatalogResponse.model_validate_json(raw)

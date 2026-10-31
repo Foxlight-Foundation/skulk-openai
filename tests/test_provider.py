@@ -1,6 +1,7 @@
 """Fixed-origin API requests and account-bound picker choices with no provider IO."""
 
 import asyncio
+import json
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
@@ -177,7 +178,59 @@ async def test_http_failure_never_retries_or_follows_redirects(
     assert len(api.calls) == 2
 
 
-@pytest.mark.parametrize("raw", [b"invalid", b"x" * 65537, b'{"models":{}}'])
+@pytest.mark.parametrize("response_bytes", [65537, 1024 * 1024])
+async def test_large_catalog_metadata_is_discarded_before_caching(
+    tmp_path: Path, response_bytes: int
+) -> None:
+    manager, issuer, _ = setup(tmp_path)
+    await connect(manager, issuer)
+    api = API()
+    payload = {
+        "models": [
+            {
+                "slug": "text-a",
+                "display_name": "First",
+                "visibility": "list",
+                "base_instructions": "",
+            }
+        ]
+    }
+    baseline = json.dumps(payload).encode()
+    payload["models"][0]["base_instructions"] = "x" * (response_bytes - len(baseline))
+    api.raw = json.dumps(payload).encode()
+    assert len(api.raw) == response_bytes
+    client = ProviderClient(manager, transport=httpx.MockTransport(api.handle))
+
+    catalog = await client.catalog()
+    cache = CatalogCache(manager)
+    cache.save(catalog)
+
+    assert [model.slug for model in catalog.models] == ["text-a"]
+    assert cache.read() == catalog
+    assert "base_instructions" not in catalog.model_dump_json()
+    assert len(catalog.model_dump_json().encode()) < 65536
+    assert len(api.calls) == 1 and client.requests_started == 0
+
+
+async def test_catalog_rejects_valid_json_above_download_limit(tmp_path: Path) -> None:
+    manager, issuer, _ = setup(tmp_path)
+    await connect(manager, issuer)
+    api = API()
+    payload: dict[str, list[str] | str] = {"models": [], "unused": ""}
+    baseline = json.dumps(payload).encode()
+    payload["unused"] = "x" * (1024 * 1024 + 1 - len(baseline))
+    api.raw = json.dumps(payload).encode()
+    assert len(api.raw) == 1024 * 1024 + 1
+    client = ProviderClient(manager, transport=httpx.MockTransport(api.handle))
+
+    with pytest.raises(ProviderFailure, match="invalid_catalog"):
+        await client.catalog()
+
+    assert CatalogCache(manager).read() is None
+    assert len(api.calls) == 1 and client.requests_started == 0
+
+
+@pytest.mark.parametrize("raw", [b"invalid", b'{"models":{}}'])
 async def test_catalog_is_finite_and_validated(tmp_path: Path, raw: bytes) -> None:
     manager, issuer, _ = setup(tmp_path)
     await connect(manager, issuer)
