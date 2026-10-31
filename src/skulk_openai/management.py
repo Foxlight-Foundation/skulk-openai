@@ -440,25 +440,37 @@ class ManagementServer:
             if "account_binding" in value:
                 raise ValueError("reserved setting")
             settings = IntegrationSettings.model_validate_json(json.dumps(value))
+            previous = await asyncio.to_thread(self.capability.settings.read)
             status = await self.sessions.status()
             if settings.gateway_public_key is not None:
                 if (
-                    status.state != "authorized"
-                    or status.registration_id is None
-                    or status.generation is None
+                    status.state == "authorized"
+                    and status.registration_id is not None
+                    and status.generation is not None
                 ):
+                    binding = account_binding(status.registration_id, status.generation)
+                elif (
+                    not settings.inference_enabled
+                    and settings.gateway_public_key == previous.gateway_public_key
+                ):
+                    # Disabling must work offline; retaining an inactive old
+                    # fence does not approve a new account or gateway key.
+                    binding = previous.account_binding
+                else:
                     raise ValueError("connect account before gateway delegation")
-                settings = settings.model_copy(
-                    update={
-                        "account_binding": account_binding(
-                            status.registration_id, status.generation
-                        )
-                    }
-                )
+                settings = settings.model_copy(update={"account_binding": binding})
             catalog = await asyncio.to_thread(self.capability.cache.read)
-            if settings.models and (
-                catalog is None
-                or not set(settings.models).issubset(m.slug for m in catalog.models)
+            revoking = not settings.inference_enabled or (
+                previous.gateway_public_key is not None
+                and settings.gateway_public_key is None
+            )
+            if (
+                settings.models
+                and (
+                    catalog is None
+                    or not set(settings.models).issubset(m.slug for m in catalog.models)
+                )
+                and not (revoking and set(settings.models).issubset(previous.models))
             ):
                 raise ValueError("model is absent from account catalog")
             async with self._operation:

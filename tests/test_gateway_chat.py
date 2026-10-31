@@ -459,3 +459,34 @@ async def test_gateway_and_legacy_share_one_owner_budget(tmp_path: Path) -> None
     again = credential.sign(invocation(catalog, clock))
     assert [e.kind async for e in capability.generate(again)] == ["failed"]
     assert capability.provider.requests_started == 2
+
+
+@pytest.mark.parametrize("connection", ["expired", "disconnected"])
+async def test_owner_can_disable_offline_without_renewing_gateway_delegation(
+    tmp_path: Path, connection: str
+) -> None:
+    """Revocation survives account expiry and missing previously selected models."""
+    capability, _, settings, _, _, api, clock = await configured(tmp_path)
+    catalog = capability.cache.read()
+    assert catalog is not None
+    capability.cache.save(catalog.model_copy(update={"models": ()}))
+    if connection == "expired":
+        clock.now += 3601
+    else:
+        await capability.provider.sessions.disconnect()
+    before = len(api.calls)
+    async with browser(ManagementServer(capability)) as client:
+        disabled = settings.model_copy(update={"inference_enabled": False})
+        body = disabled.model_dump(mode="json", exclude={"account_binding"})
+        response = await client.post("/api/settings", json=body)
+        assert response.status_code == 200 and not capability.enabled
+        assert capability.settings.read().account_binding == settings.account_binding
+        assert (
+            await client.post("/api/settings", json={**body, "inference_enabled": True})
+        ).status_code == 400
+        assert (
+            await client.post(
+                "/api/settings", json={**body, "gateway_public_key": "b" * 64}
+            )
+        ).status_code == 400
+    assert capability.provider.requests_started == 0 and len(api.calls) == before
