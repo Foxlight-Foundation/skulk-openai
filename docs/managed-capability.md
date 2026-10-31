@@ -35,9 +35,9 @@ operator-chosen location, not a private SDK internal coordinate.
 
 `__setup__.py` delegates to the [owner-local account command](account-setup.md).
 A compatible signed installation can invoke it through
-`skulk-plugin-service setup-plugin MANAGED_ID -- ...`. That command's existence
-does not mean this reference passed signed installation. Account consent, setup
-and grant issuance never automatically enable inference.
+`skulk-plugin-service setup-plugin MANAGED_ID -- ...`. The local installed proof
+covers managed inference; the installed setup journey is a separate check.
+Account consent, setup and grant issuance never automatically enable inference.
 
 For an explicitly enabled live profile, an owned worker refreshes account model
 metadata every thirty seconds, including serialized token renewal as necessary.
@@ -65,7 +65,7 @@ uv run basedpyright src/skulk_openai/managed.py examples tests_managed
 uv run pytest tests_managed
 ```
 
-Twelve SDK process tests cover the legacy fixture/mock examples and the guarded
+The SDK process tests cover the legacy fixture/mock examples and the guarded
 child: startup, health, discovery, signed stream, direct forgery, replay,
 disable/disconnect, restart and cancellation without nonce refund. All accounts,
 keys and upstream responses are synthetic. A disconnected live-profile exercise
@@ -82,17 +82,49 @@ not signed installation,
 real-provider access or cross-node fleet qualification. Private host code remains
 outside this public reference.
 
-## Signed delivery gate
+## Declared packaging and delivery
 
-`capability.toml` declares the entrypoint, setup shim, validator and license.
-The validator requires exact descriptor/settings schemas and a governed effect.
-The available publisher rejects this reference's additional `jwt` dependency and
-sibling `skulk_inference_reference` namespace: capability-specific dependency
-roots are not supported by its signed inventory. This was reproduced with an
-ordinary public-SDK wheel in the publisher environment.
+`capability.toml` declares `PyJWT>=2.10,<3` and the project-local
+`skulk_inference_reference` source package alongside the entrypoint, setup shim,
+validator and license. The candidate toolchain is author SDK 0.5.1 with owner
+0.10.0. It adds declared capability roots to the complete signed wheel closure;
+it does not require an OpenAI-specific publisher or Skulk integration.
 
-Resolve that generic contract through declared, locked and verified dependencies
-and an explicit package/namespace solution. Do not hide dependencies in a host
-launcher, vendor private SDK source or skip inventory verification. Until that
-gate passes, no signed install, upgrade/rollback, clean-author reproduction or
-leased distributed regression is claimed.
+`skulk_openai.managed:build_manifest` is the public publishing factory. For
+example, after installing the separately licensed author SDK:
+
+```python
+from skulk_openai.managed import build_manifest
+
+manifest = build_manifest(
+    executable="bundle.pyz",
+    executable_sha256="0" * 64,
+)
+```
+
+The publisher replaces that placeholder with the measured archive hash. The
+factory declares `runtime_dependencies=("pyjwt",)`, a governed effect and the
+exact descriptor/settings schemas. The validator refuses drift in those claims.
+The mock factory profile has its own bundle and callable identities.
+
+The publisher's lock must contain the licensed owner/SDK packages and declared
+capability libraries. This repository's core-only `uv.lock` does not contain the
+licensed owner. With a compatible publisher lock, `capability-wheelhouse --spec
+capability.toml --lock <publisher-lock> --output <wheelhouse>` builds the union.
+Use that wheelhouse with `capability-build --spec capability.toml`; declared
+dependencies require its isolated v2 runtime. Missing, extra, incompatible or
+tampered wheels remain refused. Account state stays outside the generation.
+
+Maintainer-local qualification has built and installed a signed 29-wheel runtime
+with real library wheels and no private SDK source in the capability archive.
+An exported-Core harness with an explicit test host attestation exercised the
+generic installer, selector and launcher, selected SDK owner, live completion,
+hard-policy denial and replay rejection. These are local integration proofs;
+they do not establish a deployed physical node or public package availability.
+The SDK protocol tests above remain fully synthetic.
+
+Obtain SDK packages through their supported licensed distribution/access process.
+Public toolchain distribution, clean-author reproduction, installed setup,
+upgrade/rollback and cross-node qualification remain separate delivery checks.
+Do not hide dependencies in a host launcher, vendor private SDK source or bypass
+inventory verification.
