@@ -61,7 +61,7 @@ still respects the owner's `inference_enabled` setting.
 The manifest declares one `link` surface, `management`, titled **OpenAI**. The
 running child reports its current credential-free loopback URL in correlated SDK
 health replies. Existing generic Skulk adapters project it into the capability's
-topology entry and **Open OpenAI** action. The page remains ready when the account
+topology entry and **Open Skulk OpenAI Integrator** action. The page remains ready when the account
 is disconnected or inference is disabled. The process owns and withdraws the
 listener on stop; an old URL is not a persistent endpoint.
 
@@ -117,3 +117,27 @@ admission, cancellation, disconnect and shutdown. Explicit licensed-SDK process
 tests verify the manifest/health surface, management while inference is disabled,
 and listener withdrawal. Source, wheel, signed runtime, installed host and live
 provider evidence remain distinct.
+
+
+## Integration settings and chat
+
+The page is settings-first, with Connection, Models, Request defaults, Skulk
+access and Diagnostics sections. It uses the actual Skulk mark, Studio palette
+and self-hosted Instrument Sans/JetBrains Mono fonts (licenses are packaged).
+See [gateway chat](gateway-chat.md) for persistent settings and enforced routing.
+An expired access token retains the connection: Refresh catalog renews it through
+the existing refresh flow when possible, without another browser consent.
+
+Additional owner-session/Origin/CSRF protected routes:
+
+| Method and path | Parameters | Behavior |
+| --- | --- | --- |
+| `POST /api/settings` | Strict `IntegrationSettings` fields except `account_binding` | Atomically saves integration policy. The account fence is derived from the protected store. No inference or catalog request. |
+| `POST /api/gateway` | Integer `port` in 1024–65535 | Reads only `/v1/inference/gateway` on IPv4 loopback, with bounded response/deadline and no proxy or redirect. Returns a public key to review; does not approve it. |
+| `POST /api/notice` | `{}` | Persists dismissal of the non-binding first-use ChatGPT plan notice. |
+| `GET /assets/skulk.svg`, font assets | None | Packaged mark and self-hosted fonts; no third-party browser fetch. |
+
+`GET /api/state` also exposes editable settings without account binding and cached
+model names, explicitly distinguishing stale choices from currently usable ones.
+The UI links to ChatGPT usage settings and current preview limitations rather
+than offering unsupported billing, temperature, token-limit or hosted-tool knobs.

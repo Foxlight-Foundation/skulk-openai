@@ -56,6 +56,10 @@ def _reject_constant(value: str) -> None:
 
 async def server_events(
     response: httpx.Response,
+    *,
+    maximum_event_bytes: int = MAX_EVENT_BYTES,
+    maximum_stream_bytes: int = MAX_STREAM_BYTES,
+    maximum_events: int = MAX_EVENTS,
 ) -> AsyncGenerator[dict[str, JsonValue]]:
     """Parse fragmented SSE with byte/event bounds before JSON decoding.
 
@@ -69,19 +73,19 @@ async def server_events(
     count = 0
     async for chunk in response.aiter_bytes():
         total += len(chunk)
-        if total > MAX_STREAM_BYTES:
+        if total > maximum_stream_bytes:
             raise InvalidResponseStream("stream exceeds byte bound")
         buffer += chunk
         while b"\n" in buffer:
             line, buffer = buffer.split(b"\n", 1)
             line = line.removesuffix(b"\r")
             event_bytes += len(line) + 1
-            if event_bytes > MAX_EVENT_BYTES:
+            if event_bytes > maximum_event_bytes:
                 raise InvalidResponseStream("event exceeds byte bound")
             if not line:
                 if data:
                     count += 1
-                    if count > MAX_EVENTS:
+                    if count > maximum_events:
                         raise InvalidResponseStream("too many events")
                     try:
                         raw: object = json.loads(
@@ -97,7 +101,7 @@ async def server_events(
                 event_bytes = 0
             elif line.startswith(b"data:"):
                 data.append(line[5:].removeprefix(b" "))
-        if event_bytes + len(buffer) > MAX_EVENT_BYTES:
+        if event_bytes + len(buffer) > maximum_event_bytes:
             raise InvalidResponseStream("event exceeds byte bound")
     if buffer or data:
         raise InvalidResponseStream("unterminated event")

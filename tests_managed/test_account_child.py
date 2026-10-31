@@ -1,6 +1,7 @@
 """Caller grants traverse a real SDK child and separately authenticated media IPC."""
 
 import asyncio
+import json
 import secrets
 from pathlib import Path
 
@@ -86,7 +87,7 @@ async def test_management_surface_survives_disabled_inference_and_withdraws_on_s
         assert "?" not in surface.url and "#" not in surface.url
         async with httpx.AsyncClient(trust_env=False) as browser:
             page = await browser.get(surface.url)
-            assert page.status_code == 200 and "Try a request" in page.text
+            assert page.status_code == 200 and "Skulk OpenAI Integrator" in page.text
             state = (await browser.get(surface.url + "api/state")).json()
             assert state["connection"] == "disconnected"
             assert not state["inference_enabled"] and state["models"] == []
@@ -271,3 +272,132 @@ async def test_cancellation_keeps_primary_health_and_does_not_refund_nonce(
         await asyncio.sleep(0.25)
         assert (await drain(child, signed))[-1].kind == "failed"
         assert (await unary(child, 2))["requests_started"] == 1
+
+
+async def test_gateway_chat_uses_public_child_protocol_and_preserves_replay_fence(
+    tmp_path: Path,
+) -> None:
+    """The real managed child discovers models and verifies gateway proof."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from skulk_inference_reference.chat import (
+        ChatCatalog,
+        GatewayInvocation,
+        GatewayProof,
+    )
+    from skulk_openai.settings import IntegrationSettings, account_binding
+
+    capability, _, catalog, _, clock = await prepared(tmp_path)
+    key = Ed25519PrivateKey.generate()
+    capability.settings.save(
+        IntegrationSettings(
+            inference_enabled=True,
+            processing="allow_openai",
+            usage="app_settings",
+            models=("text-a",),
+            gateway_public_key=key.public_key().public_bytes_raw().hex(),
+            account_binding=account_binding(
+                catalog.registration_id, catalog.generation
+            ),
+        )
+    )
+    async with managed_child(
+        "mock-openai", guarded=True, state_directory=capability.grants.credentials.root
+    ) as child:
+        discovered = ChatCatalog.model_validate_json(json.dumps(await unary(child, 3)))
+        invocation = GatewayInvocation(
+            public_key=key.public_key().public_bytes_raw().hex(),
+            target_node=discovered.target_node,
+            callable_id=discovered.callable_id,
+            descriptor_revision=discovered.descriptor_revision,
+            catalog_revision=discovered.catalog_revision,
+            model="text-a",
+            request={"messages": [{"role": "user", "content": "write code"}]},
+            nonce=secrets.token_hex(32),
+            expires_at=clock() + 30,
+        )
+        proof = GatewayProof(
+            invocation=invocation, signature=key.sign(invocation.canonical()).hex()
+        )
+
+        async def run() -> list[StreamFrame]:
+            descriptor = child.manifest.descriptors[4]
+            call_id = secrets.token_hex(16)
+            await write_message(
+                child.writer,
+                StreamInvoke(
+                    call_id=call_id,
+                    capability_id=descriptor.id,
+                    version=descriptor.version,
+                    descriptor_revision=descriptor.revision,
+                    remaining_seconds=3.0,
+                    payload=_OBJECT.validate_json(proof.model_dump_json()),
+                ),
+            )
+            reader, writer = await asyncio.wait_for(child.media.get(), 2)
+            hello = await read_message(reader)
+            assert isinstance(hello, StreamHello) and hello.call_id == call_id
+            frames: list[StreamFrame] = []
+            try:
+                while True:
+                    packet = await asyncio.wait_for(read_packet(reader), 3)
+                    if isinstance(packet, StreamEnd):
+                        break
+                    assert isinstance(packet, StreamFrame)
+                    frames.append(packet)
+                return frames
+            finally:
+                writer.close()
+                await writer.wait_closed()
+
+        frames = await run()
+        assert frames[0].payload is not None and frames[0].payload["delta"] == {
+            "content": "synthetic text"
+        }
+        assert (
+            frames[-2].payload is not None and frames[-2].payload["kind"] == "completed"
+        )
+        assert frames[-1].kind == "completed"
+        await health(child)
+        denied = await run()
+        assert (
+            denied[0].payload is not None
+            and denied[0].payload["error"] == "policy_denied"
+        )
+        assert (await unary(child, 2))["requests_started"] == 1
+
+
+async def test_overlapping_streams_keep_the_child_healthy(tmp_path: Path) -> None:
+    """Separate callers can overlap without resetting the account process."""
+    capability, credential, catalog, _, clock = await prepared(tmp_path)
+    async with managed_child(
+        "mock-openai", guarded=True, state_directory=capability.grants.credentials.root
+    ) as child:
+        first = sign(child, credential, catalog, clock)
+        second = credential.sign(
+            first.invocation.model_copy(update={"nonce": secrets.token_hex(32)})
+        )
+        channels = [await open_signed(child, first), await open_signed(child, second)]
+
+        async def consume(
+            reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+        ) -> list[str]:
+            kinds: list[str] = []
+            try:
+                while True:
+                    packet = await asyncio.wait_for(read_packet(reader), 3)
+                    if isinstance(packet, StreamEnd):
+                        return kinds
+                    assert isinstance(packet, StreamFrame)
+                    kinds.append(packet.kind)
+            finally:
+                writer.close()
+                await writer.wait_closed()
+
+        await health(child)
+        assert await asyncio.gather(*(consume(r, w) for r, w in channels)) == [
+            ["chunk", "completed"],
+            ["chunk", "completed"],
+        ]
+        await health(child)
+        assert (await unary(child, 2))["requests_started"] == 2

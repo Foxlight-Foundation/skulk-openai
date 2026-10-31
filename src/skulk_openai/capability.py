@@ -18,6 +18,7 @@ from skulk_inference_reference.contracts import (
 from .admission import GrantStore, SignedInvocation, catalog_offer
 from .auth_contracts import AuthFailure
 from .provider import CatalogCache, CatalogSnapshot, ProviderClient, ProviderFailure
+from .settings import SettingsStore
 
 
 class InferenceDiscovery(FrozenContract):
@@ -46,12 +47,14 @@ class InferenceCapability:
         self.target_node = target_node
         self.callable_id = callable_id
         self.descriptor_revision = descriptor_revision
-        self.enabled = enabled
+        self.settings = SettingsStore(provider.sessions.store)
+        self.enabled = enabled or self.settings.read().inference_enabled
         self.clock = clock
         self.grants = GrantStore(provider.sessions.store, clock=clock)
         self.cache = CatalogCache(provider.sessions)
 
-    async def _catalog(self) -> CatalogSnapshot | None:
+    async def current_catalog(self) -> CatalogSnapshot | None:
+        """Read a fresh account-bound catalog without contacting the provider."""
         if not self.enabled:
             return None
         catalog = await asyncio.to_thread(self.cache.read)
@@ -69,7 +72,7 @@ class InferenceCapability:
     async def discovery(self) -> InferenceDiscovery:
         """Publish at most sixteen cached choices without upstream HTTP or refresh."""
         try:
-            catalog = await self._catalog()
+            catalog = await self.current_catalog()
             if catalog is None:
                 return InferenceDiscovery(target_node=self.target_node)
             offers = tuple(
@@ -98,7 +101,7 @@ class InferenceCapability:
     ) -> AsyncGenerator[GenerationEvent]:
         """Enforce every direct invocation, independently of caller-side routing."""
         try:
-            catalog = await self._catalog()
+            catalog = await self.current_catalog()
             if catalog is None:
                 raise AuthFailure("permission_missing")
             await asyncio.to_thread(

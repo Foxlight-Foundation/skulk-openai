@@ -1,41 +1,396 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>OpenAI · Skulk</title>
-  <link rel="stylesheet" href="/assets/app.css">
-  <script src="/assets/app.js" defer></script>
-</head>
-<body>
-  <div class="shell">
-    <header><a class="brand" href="/" aria-label="Skulk OpenAI management"><span class="mark" aria-hidden="true"></span>Skulk</a><span class="muted">Managed capability</span></header>
-    <main>
-      <div class="intro"><div><h1>OpenAI</h1><p>Manage your connection and try a request.</p></div><div id="connection-badge" class="connection-badge" role="status"><span class="dot" aria-hidden="true"></span><span id="connection-label">Loading…</span></div></div>
-      <p id="notice" class="notice" role="status" hidden></p>
-      <section aria-labelledby="connection-title">
-        <div class="section-top"><h2 id="connection-title">Connection</h2><div class="actions"><button id="connect" disabled>Connect with ChatGPT</button><button id="disconnect" hidden>Disconnect</button></div></div>
-        <p id="connection-detail">Checking this host’s connection…</p><p class="muted">Credentials stay on this host.</p>
-        <div id="disconnect-confirmation" class="confirmation" hidden><p>Disconnect this account? New requests will be blocked and the active test will be cancelled.</p><div class="actions"><button id="confirm-disconnect" class="danger">Disconnect account</button><button id="keep-connected">Keep connected</button></div></div>
-      </section>
-      <section aria-labelledby="models-title">
-        <div class="section-top"><h2 id="models-title">Available models</h2><button class="text-button" id="refresh" disabled>Refresh models</button></div>
-        <label class="sr-only" for="model">Model</label><select id="model" disabled><option value="">Refresh models to see your choices</option></select>
-      </section>
-      <section class="request-section" aria-labelledby="request-title">
-        <h2 id="request-title">Try a request</h2>
-        <p id="inference-off" class="muted" hidden>Test requests are turned off for this capability.</p>
-        <form id="test-form">
-          <label for="prompt">Prompt</label><textarea id="prompt" maxlength="4096" required>Say hello in one sentence.</textarea>
-          <div class="policy-fields"><div><label for="processing">Processing</label><select id="processing"><option value="allow_openai">Allow OpenAI</option><option value="local_only">Local only</option></select></div><div><label for="usage">Usage</label><select id="usage"><option value="app_settings">Use app usage settings</option><option value="included_only">Included usage only</option></select></div></div>
-          <p class="hint" id="policy-hint">This sends your prompt to OpenAI. Usage follows your ChatGPT app settings.</p>
-          <div class="actions"><button class="primary" id="send" type="submit" disabled>Send test request</button><button id="cancel" type="button" disabled>Cancel</button></div>
-        </form>
-        <label for="response" class="response-label">Response</label><pre id="response" role="log" aria-live="polite" tabindex="0">Your response will appear here.</pre>
-        <p class="hint">Local-only policy blocks external requests before anything is sent.</p>
-        <p class="hint">These choices apply to this test. Routing for other apps stays as configured.</p>
-      </section>
-    </main>
-  </div>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Skulk OpenAI Integrator</title>
+    <link rel="stylesheet" href="/assets/app.css" />
+    <script src="/assets/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a href="/" class="brand"
+        ><img
+          src="/assets/skulk.svg"
+          alt="Skulk mark"
+          width="28"
+          height="28"
+        /><span
+          >Skulk <span class="brand-secondary">OpenAI Integrator</span></span
+        ></a
+      >
+      <div class="plan">
+        <span id="plan-label">ChatGPT connection</span
+        ><a
+          href="https://chatgpt.com/settings/usage"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Manage usage ↗</a
+        >
+      </div>
+    </header>
+    <div class="layout">
+      <aside>
+        <nav aria-label="Integration settings">
+          <button data-page="connection" aria-current="page">
+            <span aria-hidden="true">↗</span> Connection</button
+          ><button data-page="models">
+            <span aria-hidden="true">◇</span> Models</button
+          ><button data-page="defaults">
+            <span aria-hidden="true">☷</span> Request defaults</button
+          ><button data-page="access">
+            <span aria-hidden="true">⌘</span> Skulk access</button
+          ><button data-page="diagnostics">
+            <span aria-hidden="true">≡</span> Diagnostics
+          </button>
+        </nav>
+        <div class="aside-note">
+          <span class="eyebrow">MANAGED CAPABILITY</span>
+          <p>Provider-owned credentials</p>
+        </div>
+      </aside>
+      <main>
+        <p id="notice" class="notice" role="status" hidden></p>
+        <section id="page-connection" class="page">
+          <h1>Connection</h1>
+          <p class="subtitle">
+            Connect your ChatGPT plan and manage how Skulk uses OpenAI.
+          </p>
+          <div class="panel">
+            <div class="section-top">
+              <h2>ChatGPT connection</h2>
+              <span id="connection-badge" class="badge" role="status"
+                >Checking…</span
+              >
+            </div>
+            <p>
+              Eligible requests use your ChatGPT plan. Manage app limits and
+              credits in ChatGPT.
+            </p>
+            <dl class="facts">
+              <div>
+                <dt>Account connection</dt>
+                <dd id="connection-detail">Checking this device…</dd>
+              </div>
+              <div>
+                <dt>Plan access</dt>
+                <dd id="plan-access">Checking…</dd>
+              </div>
+              <div>
+                <dt>Provider endpoint</dt>
+                <dd class="mono">api.openai.com</dd>
+              </div>
+            </dl>
+            <div class="actions">
+              <button id="connect" disabled>Continue with ChatGPT</button
+              ><button id="disconnect" hidden>Disconnect</button>
+            </div>
+            <div id="disconnect-confirmation" class="confirmation" hidden>
+              <p>
+                Disconnect this account? New requests will be blocked and the
+                active test cancelled.
+              </p>
+              <div class="actions">
+                <button id="confirm-disconnect" class="danger">
+                  Disconnect account</button
+                ><button id="keep-connected">Keep connected</button>
+              </div>
+            </div>
+          </div>
+          <h2 class="section-heading">Integration settings</h2>
+          <div class="panel rows">
+            <label class="row"
+              ><span
+                ><strong>Enable inference</strong
+                ><small
+                  >Allow this capability to send requests to OpenAI.</small
+                ></span
+              ><input id="enabled" class="switch" type="checkbox" /></label
+            ><label class="row"
+              ><span><strong>Processing policy</strong></span
+              ><select id="processing">
+                <option value="local_only">Local processing only</option>
+                <option value="allow_openai">Allow external processing</option>
+              </select></label
+            ><label class="row"
+              ><span
+                ><strong>Usage policy</strong
+                ><small
+                  >Included-only routing stays unavailable until usage can be
+                  verified.</small
+                ></span
+              ><select id="usage">
+                <option value="included_only">Included usage only</option>
+                <option value="app_settings">
+                  Follow ChatGPT app settings
+                </option>
+              </select></label
+            >
+          </div>
+          <div class="section-heading section-top">
+            <h2>Available models</h2>
+            <button class="refresh">↻ &nbsp; Refresh catalog</button>
+          </div>
+          <p class="muted">
+            Select models that Skulk can use for this capability. Choices come
+            from your ChatGPT account.
+          </p>
+          <div id="model-preview" class="panel model-list"></div>
+          <button class="text-button" data-go="models">
+            Manage all models →
+          </button>
+        </section>
+        <section id="page-models" class="page" hidden>
+          <div class="section-top">
+            <h1>Models</h1>
+            <button class="refresh">↻ &nbsp; Refresh catalog</button>
+          </div>
+          <p class="subtitle">
+            Choose which account models this integration can expose to Skulk.
+          </p>
+          <p id="catalog-status" class="muted"></p>
+          <div id="model-list" class="panel model-list"></div>
+          <div class="panel">
+            <label class="row"
+              ><span
+                ><strong>Default model</strong
+                ><small>Used by the integration’s diagnostics.</small></span
+              ><select id="default-model">
+                <option value="">Choose a model</option>
+              </select></label
+            >
+          </div>
+          <p class="hint">
+            Account changes withdraw model availability until you approve access
+            for the new connection.
+          </p>
+        </section>
+        <section id="page-defaults" class="page" hidden>
+          <h1>Request defaults</h1>
+          <p class="subtitle">
+            Defaults and permissions for requests arriving through Skulk chat
+            and its API.
+          </p>
+          <div class="panel">
+            <label for="instructions">Developer instructions</label>
+            <p class="hint">
+              Prepended to each request. Full conversation history is sent
+              explicitly.
+            </p>
+            <textarea
+              id="instructions"
+              rows="5"
+              maxlength="4096"
+              placeholder="Optional instructions for this integration"
+            ></textarea>
+          </div>
+          <div class="panel rows">
+            <label class="row"
+              ><span
+                ><strong>Reasoning effort</strong
+                ><small
+                  >Provider default is safest across different models.</small
+                ></span
+              ><select id="reasoning">
+                <option value="">Provider default</option>
+                <option>none</option>
+                <option>minimal</option>
+                <option>low</option>
+                <option>medium</option>
+                <option>high</option>
+                <option>xhigh</option>
+<option>max</option>
+<option>ultra</option>
+              </select></label
+            ><label class="row"
+              ><span><strong>Response verbosity</strong></span
+              ><select id="verbosity">
+                <option value="">Provider default</option>
+                <option>low</option>
+                <option>medium</option>
+                <option>high</option>
+              </select></label
+            ><label class="row"
+              ><span
+                ><strong>Function tools</strong
+                ><small
+                  >Return tool calls for the client to execute under its own
+                  permissions.</small
+                ></span
+              ><input id="tools" class="switch" type="checkbox" /></label
+            ><label class="row"
+              ><span
+                ><strong>Image input</strong
+                ><small
+                  >Allow bounded inline images for models that accept
+                  them.</small
+                ></span
+              ><input id="images" class="switch" type="checkbox" /></label
+            ><label class="row"
+              ><span
+                ><strong>Output character bound</strong
+                ><small
+                  >Local stream bound, including reasoning and tool arguments.
+                  Not a billing cap.</small
+                ></span
+              ><input
+                id="output-limit"
+                type="number"
+                min="256"
+                max="131072"
+                step="1" /></label
+            ><label class="row"
+              ><span
+                ><strong>Requests per UTC hour</strong
+                ><small
+                  >Shared by the delegated gateway. Attempts count even if
+                  upstream fails.</small
+                ></span
+              ><input
+                id="request-limit"
+                type="number"
+                min="1"
+                max="1000"
+                step="1"
+            /></label>
+          </div>
+          <div class="callout">
+            <h3>Preview support</h3>
+            <p>
+              Text, code, reasoning summaries, structured output and
+              client-executed function tools use the Responses API. Model
+              support varies. Streaming is required and responses are not stored
+              by this integration.
+            </p>
+            <p>
+              Temperature and token-limit controls, hosted Code Interpreter,
+              image generation, file search, hosted MCP, and OpenAI audio
+              endpoints are unavailable through this connection. Mounted Skulk
+              speech models can speak chat output.
+            </p>
+            <a
+              href="https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations"
+              target="_blank"
+              rel="noopener noreferrer"
+              >OpenAI preview details ↗</a
+            >
+          </div>
+        </section>
+        <section id="page-access" class="page" hidden>
+          <h1>Skulk access</h1>
+          <p class="subtitle">
+            Authorize a Skulk gateway to use the selected models through the
+            unified API.
+          </p>
+          <div class="panel">
+            <h2>Gateway delegation</h2>
+            <p>
+              Approve the public signing key of the Skulk API on this device.
+              Account credentials remain inside this capability. Ordinary LAN
+              clients do not gain inference access.
+            </p>
+            <div class="gateway-lookup">
+              <label for="gateway-port">Local Skulk API port</label>
+              <div class="actions">
+                <input
+                  id="gateway-port"
+                  type="number"
+                  min="1024"
+                  max="65535"
+                  value="52415"
+                /><button id="find-gateway">Find gateway</button>
+              </div>
+            </div>
+            <label for="gateway-key">Gateway public key</label
+            ><input
+              id="gateway-key"
+              class="mono"
+              type="text"
+              readonly
+              placeholder="Find a compatible Skulk gateway"
+            />
+            <p class="hint">
+              Save settings to approve this key for the current account,
+              selected models, and request limits.
+            </p>
+            <button id="revoke-gateway" class="danger">
+              Remove gateway access
+            </button>
+          </div>
+          <div class="callout">
+            <h3>Chat and API</h3>
+            <p>
+              On a compatible Skulk build, owner-enabled models appear under
+              capability models in chat and in <code>GET /v1/models</code>. Send
+              their exact returned IDs to
+              <code>POST /v1/chat/completions</code>.
+            </p>
+            <p>
+              Requests require direct owner access to that gateway. Streaming,
+              code rendering, and mounted TTS use the normal chat path.
+              Paired-device inference grants and distributed routing remain
+              separate acceptance gates.
+            </p>
+            <p id="access-status" class="mono"></p>
+          </div>
+        </section>
+        <section id="page-diagnostics" class="page" hidden>
+          <h1>Diagnostics</h1>
+          <p class="subtitle">Check the connection with one small request.</p>
+          <div class="panel">
+            <form id="test-form">
+              <label for="model">Model</label
+              ><select id="model" required>
+                <option value="">Refresh catalog to see models</option></select
+              ><label for="prompt">Prompt</label
+              ><textarea id="prompt" maxlength="4096" required>
+Say hello in one sentence.</textarea
+              >
+              <p id="policy-hint" class="hint">
+                A test sends this prompt to OpenAI using your ChatGPT app
+                settings.
+              </p>
+              <div class="actions">
+                <button id="send" class="primary" type="submit" disabled>
+                  Send test request</button
+                ><button id="cancel" type="button" disabled>Cancel</button>
+              </div>
+            </form>
+            <label for="response" class="response-label">Response</label>
+            <pre id="response" role="log" aria-live="polite" tabindex="0">
+Your response will appear here.</pre
+            >
+          </div>
+          <p id="inference-off" class="hint">
+            Enable inference and allow external processing in Connection before
+            testing.
+          </p>
+        </section>
+      </main>
+    </div>
+    <footer>
+      <span id="save-status" role="status"
+        >Settings apply to this capability</span
+      >
+      <div class="actions">
+        <button id="discard" disabled>Discard changes</button
+        ><button id="save" class="primary" disabled>Save settings</button>
+      </div>
+    </footer>
+    <dialog id="welcome">
+      <h2>You’re using your ChatGPT plan</h2>
+      <p>
+        Eligible AI requests use your ChatGPT plan or app credit settings.
+        Review and manage usage in ChatGPT.
+      </p>
+      <div class="actions">
+        <a
+          href="https://chatgpt.com/settings/usage"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Manage usage ↗</a
+        ><button class="primary" id="got-it">Got it</button>
+      </div>
+    </dialog>
+  </body>
 </html>

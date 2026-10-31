@@ -41,7 +41,7 @@ async def run(
         loop.add_signal_handler(signum, done.set)
     try:
         url = await server.start(port=port)
-        print("OpenAI management: " + url, flush=True)
+        print("Skulk OpenAI Integrator: " + url, flush=True)
         if open_browser:
             await asyncio.to_thread(webbrowser.open, url)
         await done.wait()
@@ -53,7 +53,7 @@ async def run(
 
 def main() -> None:
     """Launch owner management; explicit send/connect actions authorize effects."""
-    parser = argparse.ArgumentParser(description="OpenAI capability management")
+    parser = argparse.ArgumentParser(description="Skulk OpenAI Integrator")
     parser.add_argument("--state-dir", type=Path, default=default_state_directory())
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--enable-inference", action="store_true")

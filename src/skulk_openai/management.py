@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from importlib.resources import files
 from typing import Literal
 
+import httpx
 from pydantic import Field, JsonValue, TypeAdapter
 
 from skulk_inference_reference.contracts import (
@@ -25,6 +26,7 @@ from .admission import CallerCredential, Invocation
 from .auth_contracts import AuthFailure
 from .capability import InferenceCapability
 from .provider import ProviderFailure
+from .settings import IntegrationSettings, account_binding
 from .setup import CallbackListener
 
 _OBJECT = TypeAdapter(dict[str, JsonValue])
@@ -32,6 +34,9 @@ _ASSETS = {
     "/": ("index.html", "text/html"),
     "/assets/app.css": ("app.css", "text/css"),
     "/assets/app.js": ("app.js", "text/javascript"),
+    "/assets/skulk.svg": ("skulk.svg", "image/svg+xml"),
+    "/assets/instrument-sans.woff2": ("instrument-sans.woff2", "font/woff2"),
+    "/assets/jetbrains-mono.woff2": ("jetbrains-mono.woff2", "font/woff2"),
 }
 _FORWARDED = {
     "forwarded",
@@ -56,6 +61,12 @@ class ConnectRequest(FrozenContract):
     """An explicit request to start consent, optionally recovering plan permission."""
 
     request_plan_consent: bool = False
+
+
+class GatewayLookup(FrozenContract):
+    """Fetch only a public gateway key from a fixed loopback API path."""
+
+    port: int = Field(ge=1024, le=65535)
 
 
 @dataclass(frozen=True)
@@ -192,7 +203,8 @@ class ManagementServer:
             "Cache-Control: no-store\r\nReferrer-Policy: no-referrer\r\n"
             "X-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\n"
             "Content-Security-Policy: default-src 'none'; script-src 'self'; "
-            "style-src 'self'; connect-src 'self'; frame-ancestors 'none'; "
+            "style-src 'self'; font-src 'self'; img-src 'self'; "
+            "connect-src 'self'; frame-ancestors 'none'; "
             "base-uri 'none'; form-action 'self'\r\n"
             "Connection: close\r\n"
         )
@@ -239,10 +251,29 @@ class ManagementServer:
             "catalog_revision": catalog.revision
             if catalog is not None and fresh
             else None,
+            "catalog_fresh": fresh,
+            "cached_models": [
+                {"slug": m.slug, "title": m.display_name} for m in catalog.models
+            ]
+            if catalog is not None
+            and status.registration_id == catalog.registration_id
+            and status.generation == catalog.generation
+            else [],
             "busy": self._generation is not None and not self._generation.done(),
             "connecting": self._consent is not None and not self._consent.done(),
             "notice": self._notice,
             "csrf": self._csrf,
+            "settings": _OBJECT.validate_json(
+                self.capability.settings.read().model_dump_json(
+                    exclude={"account_binding"}
+                )
+            ),
+            "gateway_delegation_current": (
+                status.registration_id is not None
+                and status.generation is not None
+                and self.capability.settings.read().account_binding
+                == account_binding(status.registration_id, status.generation)
+            ),
         }
 
     async def _watch_consent(self, listener: CallbackListener) -> None:
@@ -283,7 +314,9 @@ class ManagementServer:
                 catalog,
                 models=(model,),
                 maximum_attempts=1,
-                maximum_output_characters=1024,
+                maximum_output_characters=min(
+                    1024, self.capability.settings.read().maximum_output_characters
+                ),
                 lifetime_seconds=60.0,
                 allow_external_unknown_usage=True,
             )
@@ -316,7 +349,11 @@ class ManagementServer:
                     catalog_revision=request.catalog_revision,
                     model=request.model,
                     request=GenerationRequest(
-                        messages=(Message(role="user", content=request.prompt),)
+                        messages=(Message(role="user", content=request.prompt),),
+                        maximum_output_characters=min(
+                            1024,
+                            self.capability.settings.read().maximum_output_characters,
+                        ),
                     ),
                     requirements=Requirements(
                         allowed_domains=frozenset({"external"}),
@@ -359,14 +396,95 @@ class ManagementServer:
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
     ) -> None:
+        if request.path == "/api/notice":
+            if _OBJECT.validate_json(request.body) != {}:
+                raise ValueError("unexpected notice fields")
+            async with self._operation:
+                settings = await asyncio.to_thread(self.capability.settings.read)
+                await asyncio.to_thread(
+                    self.capability.settings.save,
+                    settings.model_copy(update={"plan_notice_seen": True}),
+                )
+            await self._json(writer, {"acknowledged": True})
+            return
+        if request.path == "/api/gateway":
+            lookup = GatewayLookup.model_validate_json(request.body)
+            async with httpx.AsyncClient(
+                trust_env=False, follow_redirects=False, timeout=3
+            ) as client:
+                async with client.stream(
+                    "GET", f"http://127.0.0.1:{lookup.port}/v1/inference/gateway"
+                ) as response:
+                    if response.status_code != 200:
+                        raise ValueError("gateway unavailable")
+                    raw = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        raw.extend(chunk)
+                        if len(raw) > 4096:
+                            raise ValueError("invalid gateway")
+            value = _OBJECT.validate_json(raw)
+            key = value.get("public_key")
+            if (
+                value.get("contract") != "chat.completions@0.1.0"
+                or not isinstance(key, str)
+                or len(key) != 64
+                or any(c not in "0123456789abcdef" for c in key)
+            ):
+                raise ValueError("invalid gateway key")
+            await self._json(writer, {"public_key": key})
+            return
+        if request.path == "/api/settings":
+            value = _OBJECT.validate_json(request.body)
+            # Account fencing is derived from our protected store, never from
+            # a browser-supplied registration id or generation claim.
+            if "account_binding" in value:
+                raise ValueError("reserved setting")
+            settings = IntegrationSettings.model_validate_json(json.dumps(value))
+            status = await self.sessions.status()
+            if settings.gateway_public_key is not None:
+                if (
+                    status.state != "authorized"
+                    or status.registration_id is None
+                    or status.generation is None
+                ):
+                    raise ValueError("connect account before gateway delegation")
+                settings = settings.model_copy(
+                    update={
+                        "account_binding": account_binding(
+                            status.registration_id, status.generation
+                        )
+                    }
+                )
+            catalog = await asyncio.to_thread(self.capability.cache.read)
+            if settings.models and (
+                catalog is None
+                or not set(settings.models).issubset(m.slug for m in catalog.models)
+            ):
+                raise ValueError("model is absent from account catalog")
+            async with self._operation:
+                await self._stop_generation()
+                await asyncio.to_thread(self.capability.settings.save, settings)
+                self.capability.enabled = settings.inference_enabled
+            await self._json(writer, await self._state())
+            return
         if request.path == "/api/generate":
             payload = TestRequest.model_validate_json(request.body)
+            settings = self.capability.settings.read()
             # Hard policy precedes grant creation and every provider request,
             # including catalog refresh; a local-only click sends nothing out.
             if (
                 payload.processing != "allow_openai"
                 or payload.usage != "app_settings"
                 or not self.capability.enabled
+                or (
+                    self.capability.settings.configured()
+                    and (
+                        not settings.inference_enabled
+                        or settings.processing != "allow_openai"
+                        or settings.usage != "app_settings"
+                        or payload.model not in settings.models
+                    )
+                )
             ):
                 await self._json(writer, {"error": "policy_denied"}, status=403)
                 return
@@ -483,7 +601,14 @@ class ManagementServer:
         except (ValueError, asyncio.IncompleteReadError, asyncio.LimitOverrunError):
             with contextlib.suppress(ConnectionError):
                 await self._json(writer, {"error": "invalid_request"}, status=400)
-        except (AuthFailure, ProviderFailure, OSError, sqlite3.Error, TimeoutError):
+        except (
+            AuthFailure,
+            ProviderFailure,
+            httpx.HTTPError,
+            OSError,
+            sqlite3.Error,
+            TimeoutError,
+        ):
             with contextlib.suppress(ConnectionError):
                 await self._json(writer, {"error": "operation_failed"}, status=503)
         finally:

@@ -11,6 +11,7 @@ from typing import Literal, final
 import httpx
 from pydantic import ConfigDict, Field
 
+from skulk_inference_reference.chat import ChatEvent
 from skulk_inference_reference.contracts import (
     FrozenContract,
     GenerationEvent,
@@ -19,6 +20,7 @@ from skulk_inference_reference.contracts import (
 )
 
 from .auth_contracts import AuthFailure, Registration
+from .chat_stream import chat_events
 from .responses import response_events
 from .sessions import SessionManager
 
@@ -47,6 +49,8 @@ class CatalogModel(FrozenContract):
     slug: Identifier
     display_name: str = Field(min_length=1, max_length=256)
     visibility: str = Field(max_length=32)
+    input_modalities: tuple[Identifier, ...] = Field(default=(), max_length=16)
+    supports_parallel_tool_calls: bool = False
 
 
 @final
@@ -201,6 +205,44 @@ class ProviderClient:
             yield GenerationEvent(kind="failed", error="policy_denied")
         except (httpx.HTTPError, TimeoutError):
             yield GenerationEvent(kind="failed", error="upstream_failed")
+
+    async def chat(
+        self,
+        body: dict[str, object],
+        *,
+        catalog: CatalogSnapshot,
+        maximum_characters: int,
+    ) -> AsyncGenerator[ChatEvent]:
+        """Submit one pre-admitted chat request, without replay or stored context."""
+        try:
+            token = await self.sessions.access_token(
+                catalog.registration_id, catalog.generation
+            )
+            if catalog.expires_at <= self.clock():
+                yield ChatEvent(kind="failed", error="policy_denied")
+                return
+            async with httpx.AsyncClient(
+                transport=self.transport,
+                trust_env=False,
+                follow_redirects=False,
+                timeout=httpx.Timeout(120, connect=5),
+            ) as client:
+                self.requests_started = min(self.requests_started + 1, 2**63 - 1)
+                async with client.stream(
+                    "POST",
+                    "https://api.openai.com/v1/responses",
+                    headers={"Authorization": "Bearer " + token.get_secret_value()},
+                    json=body,
+                ) as response:
+                    async with aclosing(
+                        chat_events(response, maximum_characters=maximum_characters)
+                    ) as events:
+                        async for event in events:
+                            yield event
+        except AuthFailure:
+            yield ChatEvent(kind="failed", error="policy_denied")
+        except (httpx.HTTPError, TimeoutError):
+            yield ChatEvent(kind="failed", error="upstream_failed")
 
 
 class CatalogCache:
