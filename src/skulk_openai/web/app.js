@@ -97,7 +97,17 @@ function populate(s) {
   $("save-status").textContent = "Settings apply to this capability";
 }
 function renderModels() {
-  const models = current?.cached_models ?? [];
+  const available = current?.cached_models ?? [];
+  const missing = [...draftModels].filter(
+    (slug) => !available.some((model) => model.slug === slug),
+  );
+  const models = [
+    ...available,
+    ...missing.map((slug) => ({
+      slug,
+      title: `${slug} (unavailable; remove selection)`,
+    })),
+  ];
   const render = (target, limit) => {
     target.replaceChildren();
     if (!models.length) {
@@ -136,7 +146,7 @@ function renderModels() {
     }
   };
   render($("model-preview"), 2);
-  render($("model-list"), 128);
+  render($("model-list"), 256);
   const previous = $("default-model").value;
   $("default-model").replaceChildren(new Option("Choose a model", ""));
   for (const model of models.filter((m) => draftModels.has(m.slug)))

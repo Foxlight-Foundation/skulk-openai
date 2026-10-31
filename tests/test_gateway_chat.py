@@ -347,7 +347,14 @@ async def test_saved_enablement_overrides_startup_after_restart(
 ) -> None:
     """A saved disable survives both UI and managed startup enable flags."""
     original, credential, catalog, _, clock = await prepared(tmp_path)
-    original.settings.save(IntegrationSettings(inference_enabled=saved_enabled))
+    original.settings.save(
+        IntegrationSettings(
+            inference_enabled=saved_enabled,
+            processing="allow_openai",
+            usage="app_settings",
+            models=("text-a",),
+        )
+    )
     restarted = InferenceCapability(
         original.provider,
         target_node=original.target_node,
@@ -379,3 +386,76 @@ async def test_saved_disable_is_observed_by_an_already_running_capability(
         async for e in capability.generate(credential.sign(invocation(catalog, clock)))
     ]
     assert events[-1].kind == "failed" and capability.provider.requests_started == 0
+
+
+@pytest.mark.parametrize("restriction", ["local", "included", "model", "output"])
+async def test_saved_owner_restrictions_guard_legacy_signed_calls(
+    tmp_path: Path, restriction: str
+) -> None:
+    """Existing finite grants cannot bypass new saved integration restrictions."""
+    capability, credential, catalog, _, clock = await prepared(tmp_path)
+    settings = IntegrationSettings(
+        inference_enabled=True,
+        processing="allow_openai",
+        usage="app_settings",
+        models=("text-a",),
+    )
+    restrictions: dict[str, dict[str, object]] = {
+        "local": {"processing": "local_only"},
+        "included": {"usage": "included_only"},
+        "model": {"models": ("text-b",)},
+        "output": {"maximum_output_characters": 256},
+    }
+    updates = restrictions[restriction]
+    capability.settings.save(
+        IntegrationSettings.model_validate(settings.model_copy(update=updates))
+    )
+    events = [
+        e
+        async for e in capability.generate(credential.sign(invocation(catalog, clock)))
+    ]
+    assert events[-1].kind == "failed" and capability.provider.requests_started == 0
+
+
+async def test_legacy_calls_share_the_saved_attempt_budget(tmp_path: Path) -> None:
+    """A new legacy grant or nonce cannot widen the integration-wide hourly cap."""
+    capability, credential, catalog, _, clock = await prepared(tmp_path)
+    capability.settings.save(
+        IntegrationSettings(
+            inference_enabled=True,
+            processing="allow_openai",
+            usage="app_settings",
+            models=("text-a",),
+            maximum_requests_per_hour=1,
+        )
+    )
+    first = invocation(catalog, clock)
+    assert [e.kind async for e in capability.generate(credential.sign(first))][
+        -1
+    ] == "completed"
+    second = first.model_copy(update={"nonce": secrets.token_hex(32)})
+    assert [e.kind async for e in capability.generate(credential.sign(second))] == [
+        "failed"
+    ]
+    assert capability.provider.requests_started == 1
+
+
+async def test_gateway_and_legacy_share_one_owner_budget(tmp_path: Path) -> None:
+    """Switching callable protocols cannot reset the saved integration limit."""
+    capability, service, _, _, proof, _, clock = await configured(tmp_path)
+    catalog = capability.cache.read()
+    assert catalog is not None
+    credential = capability.grants.issue(
+        catalog,
+        models=("text-a",),
+        maximum_attempts=2,
+        maximum_output_characters=1024,
+        lifetime_seconds=300,
+        allow_external_unknown_usage=True,
+    )
+    assert [e.kind async for e in service.generate(proof)][-1] == "completed"
+    signed = credential.sign(invocation(catalog, clock))
+    assert [e.kind async for e in capability.generate(signed)][-1] == "completed"
+    again = credential.sign(invocation(catalog, clock))
+    assert [e.kind async for e in capability.generate(again)] == ["failed"]
+    assert capability.provider.requests_started == 2

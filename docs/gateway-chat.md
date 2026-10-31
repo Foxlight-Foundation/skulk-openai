@@ -43,6 +43,9 @@ budget before submitting content. Disconnect, account switch and reconnection
 withdraw the old account delegation. Saving new settings withdraws stale catalog
 proofs. Calls already admitted may be in flight. Budgets are local operational
 bounds, not provider billing guarantees; failed attempts are not refunded.
+Saved hard processing/usage/model/output restrictions also guard legacy finite
+calls, and both callables share the saved attempt budget. Unconfigured stores
+retain their original finite-grant behavior.
 
 Unknown provider usage stays `unknown`. A local-only or included-only hard
 requirement fails before provider submission. Choosing a model and enabling

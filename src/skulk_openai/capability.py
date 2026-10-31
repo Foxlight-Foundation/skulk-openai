@@ -89,6 +89,12 @@ class InferenceCapability:
             catalog = await self.current_catalog()
             if catalog is None:
                 return InferenceDiscovery(target_node=self.target_node)
+            settings = self.settings.read() if self.settings.configured() else None
+            if settings is not None and (
+                settings.processing != "allow_openai"
+                or settings.usage != "app_settings"
+            ):
+                return InferenceDiscovery(target_node=self.target_node)
             offers = tuple(
                 catalog_offer(
                     catalog,
@@ -97,6 +103,7 @@ class InferenceCapability:
                     descriptor_revision=self.descriptor_revision,
                 )
                 for model in catalog.models[:16]
+                if settings is None or model.slug in settings.models
             )
             return InferenceDiscovery(
                 target_node=self.target_node,
