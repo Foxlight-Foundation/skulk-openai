@@ -39,6 +39,22 @@ synthetic external offer. An explicit external-allowed policy prefers the mock
 OpenAI provider. Both return the same text/terminal contract. No socket is opened
 for these HTTP mocks, and no provider token is read.
 
+## Manage the capability
+
+The [owner-local management page](docs/management-ui.md) provides connection
+status, connect/reconnect/disconnect, account-specific models and an explicit
+streaming test with processing/usage policy controls:
+
+```sh
+uv run skulk-openai-ui --enable-inference
+```
+
+Opening the page sends no provider request. Account setup and prompts require
+explicit actions. The managed child also declares this page as a generic SDK
+surface. Plugins and topology show it only after the capability is installed
+under the host's plugin manager; a standalone page or connected account does
+not create an installation.
+
 ## What this proves
 
 - Shared inference semantics with independent callable identities.

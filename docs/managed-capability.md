@@ -20,6 +20,13 @@ independently enforces a finite [caller grant](caller-grants.md).
 
 ## State, settings and setup
 
+The manifest also declares a credential-free, loopback [management web
+surface](management-ui.md). Correlated health replies report its actual URL;
+existing generic Skulk adapters can show its open action. Management stays
+available while inference is disabled or the account is disconnected. The child
+owns the listener and cancels browser tests/sign-in on shutdown. Declaring this
+surface does not install or activate the package in a running host.
+
 Owner settings contain `inference_enabled` (default false) and an optional
 absolute `state_directory`. They contain no provider URL, token, caller key or
 callback URL. Generic owner enablement starts the child; inference additionally

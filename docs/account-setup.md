@@ -1,5 +1,9 @@
 # Capability-owned account setup
 
+For browser-based account management, use the [management page](management-ui.md).
+It shares these session primitives and stable storage. The commands below remain
+available for headless owner-local setup.
+
 The account lifecycle belongs to this package. It uses no OpenAI-specific Skulk
 core endpoint, worker, engine, configuration or State field. Setup is an explicit
 owner-local action, separate from installing a package or granting a caller use

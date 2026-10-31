@@ -36,6 +36,7 @@ from examples.managed_child import descriptors
 from skulk_openai.credentials import CredentialStore
 from skulk_openai.managed import Configuration as AccountConfiguration
 from skulk_openai.managed import descriptors as account_descriptors
+from skulk_openai.managed import management_surfaces
 
 pytestmark = pytest.mark.managed
 _REPO = Path(__file__).resolve().parents[1]
@@ -108,6 +109,7 @@ async def managed_child(
             else None,
             effect="governed" if guarded else "read",
             runtime_dependencies=("pyjwt",) if guarded else (),
+            surfaces=management_surfaces() if guarded else (),
         )
         startup = Startup(
             socket=str(root / "control"),
