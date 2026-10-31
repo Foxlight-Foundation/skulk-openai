@@ -72,6 +72,9 @@ account's OAuth bearer. It preserves server order and includes only entries with
 `visibility: list`. Each snapshot expires after 60 seconds and binds the exact
 account generation. A catalog entry is a picker choice, not evidence of quota,
 feature support, context size or entitlement. No hardcoded model list is used.
+The catalog download is bounded to 1 MiB because the upstream response can include
+large model instructions. Only the validated picker fields enter the snapshot;
+unrelated metadata is discarded and the persisted cache retains its 64 KiB limit.
 
 An owner may then select a returned slug and send one small stdin prompt:
 
