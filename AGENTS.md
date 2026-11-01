@@ -23,6 +23,7 @@ Before every implementation commit run:
     uv run ruff check
     uv run ruff format --check
     uv run pytest
+    node --test tests_web/*.test.cjs
     git diff --check
     git diff --cached --check
 

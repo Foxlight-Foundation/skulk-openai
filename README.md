@@ -32,6 +32,7 @@ cd skulk-openai
 uv sync --frozen
 uv run skulk-openai-demo
 uv run pytest
+node --test tests_web/*.test.cjs
 ```
 
 The default local-only policy chooses the fixture provider and rejects the
