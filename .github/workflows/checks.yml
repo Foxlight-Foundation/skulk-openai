@@ -24,6 +24,7 @@ jobs:
       - run: uv run ruff check
       - run: uv run ruff format --check
       - run: uv run pytest
+      - run: node --test tests_web/*.test.cjs
       - run: uv run skulk-openai-demo
       - run: uv build
       # SDK examples are tested explicitly with licensed SDK access. These jobs

@@ -287,7 +287,19 @@ $("connect").addEventListener("click", () =>
       request_plan_consent: current.connection === "identity_only",
     });
     const url = new URL(next.launch_url);
-    if (url.protocol !== "https:" || url.hostname !== "auth.openai.com")
+    // Account setup first opens its one-use loopback launcher, which redirects
+    // to the fixed issuer. Never open an arbitrary URL returned to this page.
+    if (
+      url.protocol !== "http:" ||
+      url.hostname !== "127.0.0.1" ||
+      !url.port ||
+      Number(url.port) < 1 ||
+      url.username ||
+      url.password ||
+      !/^\/continue\/[A-Za-z0-9_-]{43}$/.test(url.pathname) ||
+      url.search ||
+      url.hash
+    )
       throw new Error("Unexpected authorization destination.");
     window.open(url.href, "_blank", "noopener,noreferrer");
     notify(
