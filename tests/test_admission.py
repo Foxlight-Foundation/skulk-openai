@@ -16,6 +16,7 @@ from skulk_openai.caller import read_credential, write_credential
 from skulk_openai.capability import InferenceCapability
 from skulk_openai.credentials import CredentialStore
 from skulk_openai.provider import CatalogCache, CatalogSnapshot, ProviderClient
+from skulk_openai.settings import IntegrationSettings, account_binding
 from tests.test_provider import API, collect, request
 from tests.test_sessions import Clock, connect, setup
 
@@ -239,6 +240,39 @@ async def test_discovery_does_not_refresh_or_call_upstream(tmp_path: Path) -> No
         offer.domain == "external" and offer.usage == "unknown" for offer in first
     )
     assert all(offer.context_tokens is None for offer in first)
+    assert len(api.calls) == 1
+
+
+@pytest.mark.parametrize("configured", [False, True])
+async def test_discovery_bounds_enabled_choices_after_filtering(
+    tmp_path: Path, configured: bool
+) -> None:
+    """Late enabled models remain discoverable within the sixteen-offer bound."""
+    capability, _, catalog, api, _ = await prepared(tmp_path)
+    models = tuple(
+        catalog.models[0].model_copy(update={"slug": f"model-{index:02d}"})
+        for index in range(40)
+    )
+    expanded = catalog.model_copy(update={"models": models})
+    capability.cache.save(expanded)
+    if configured:
+        capability.settings.save(
+            IntegrationSettings(
+                inference_enabled=True,
+                processing="allow_openai",
+                usage="app_settings",
+                models=tuple(model.slug for model in models[20:]),
+                account_binding=account_binding(
+                    expanded.registration_id, expanded.generation
+                ),
+            )
+        )
+    discovered = await capability.discovery()
+    expected = models[20:36] if configured else models[:16]
+    assert tuple(offer.model for offer in discovered.offers) == tuple(
+        model.slug for model in expected
+    )
+    assert discovered.catalog_revision == expanded.revision
     assert len(api.calls) == 1
 
 

@@ -152,7 +152,7 @@ def build_manifest(
     """
     return Manifest(
         bundle_id="reference.openai.mock" if mock else "reference.openai",
-        bundle_version="0.3.0",
+        bundle_version="0.3.1",
         executable=executable,
         executable_sha256=executable_sha256,
         arguments=(),
