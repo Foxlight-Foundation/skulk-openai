@@ -5,6 +5,7 @@ import sqlite3
 import time
 from collections.abc import AsyncGenerator, Callable
 from contextlib import aclosing
+from itertools import islice
 
 from pydantic import Field
 
@@ -84,7 +85,7 @@ class InferenceCapability:
         return catalog
 
     async def discovery(self) -> InferenceDiscovery:
-        """Publish at most sixteen cached choices without upstream HTTP or refresh."""
+        """Publish at most sixteen enabled cached choices without upstream IO."""
         try:
             catalog = await self.current_catalog()
             if catalog is None:
@@ -95,6 +96,13 @@ class InferenceCapability:
                 or settings.usage != "app_settings"
             ):
                 return InferenceDiscovery(target_node=self.target_node)
+            # Limit the permitted choices, so disabled entries cannot hide an
+            # enabled model merely because it appears later in the account list.
+            models = (
+                model
+                for model in catalog.models
+                if settings is None or model.slug in settings.models
+            )
             offers = tuple(
                 catalog_offer(
                     catalog,
@@ -102,8 +110,7 @@ class InferenceCapability:
                     callable_id=self.callable_id,
                     descriptor_revision=self.descriptor_revision,
                 )
-                for model in catalog.models[:16]
-                if settings is None or model.slug in settings.models
+                for model in islice(models, 16)
             )
             return InferenceDiscovery(
                 target_node=self.target_node,
