@@ -37,6 +37,7 @@ def test_publishing_manifest_declares_its_runtime_root(mock: bool) -> None:
         executable="bundle.pyz", executable_sha256="0" * 64, mock=mock
     )
     validate_manifest(manifest)
+    assert manifest.title == "Skulk OpenAI Integrator"
     assert manifest.bundle_id == (
         "reference.openai.mock" if mock else "reference.openai"
     )
