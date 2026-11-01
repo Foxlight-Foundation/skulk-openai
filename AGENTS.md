@@ -23,12 +23,18 @@ Before every implementation commit run:
     uv run ruff check
     uv run ruff format --check
     uv run pytest
+    node --test tests_web/*.test.cjs
     git diff --check
     git diff --cached --check
 
 Managed SDK tests are a separate explicit suite. Missing SDK access must be
-reported as a gate, never silently treated as a passing managed test. Install
+reported as a gate, never silently treated as a passing managed test. Also run
+`uv run basedpyright src/skulk_openai/managed.py examples tests_managed` and
+`uv run pytest tests_managed`
+when the licensed SDK is available; core CI covers only `src` and `tests`. Install
 licensed packages only in this repository's isolated environment.
+Core type checks exclude the SDK-dependent managed entrypoint; the explicit SDK
+check above includes it. Never describe the core job alone as managed validation.
 
 Use ready PRs and complete the review/check loop. Apply the Foxlight severity
 formula: components are half of likelihood/impact (1-5, zero when 1); subtract
@@ -37,7 +43,10 @@ triggerability 0-2. Impact 1 is informational. Fix scores >3.5; reply with the
 rationale for deferring lower scores and resolve handled threads. Merge the
 exact checked head into the initiative branch after checks and review pass.
 
-This slice must remain credential-free and use mock transports only. Do not
-contact provider accounts, launch a default Skulk node, acquire a fleet lease,
-or install a service as part of these tests. Caller authority and protected
-credential handling must be qualified before real-account fabric admission.
+Automated tests must remain credential-free and use mock upstream transports.
+Owner-local account setup may contact the fixed official issuer only after an
+explicit operator action. Never sign in, read another tool's tokens, contact a
+real provider account or incur inference usage during unattended development.
+Caller authority and protected credential handling must be qualified before
+real-account fabric admission. Use only authorized isolated fleet leases under
+normal coordination rules; never launch a default node into a shared fleet.
