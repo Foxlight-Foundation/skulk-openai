@@ -145,15 +145,16 @@ def descriptors(*, mock: bool = False) -> tuple[Descriptor, ...]:
 def build_manifest(
     *, executable: str, executable_sha256: str, mock: bool = False
 ) -> Manifest:
-    """Build the governed publishing contract using author SDK 0.5.1 or newer.
+    """Build the governed publishing contract using author SDK 0.5.2 or newer.
 
     The publisher replaces the placeholder artifact digest with its measured
     bytes. Account state stays outside both the manifest and generation.
     """
     return Manifest(
         bundle_id="reference.openai.mock" if mock else "reference.openai",
-        bundle_version="0.3.2",
+        bundle_version="0.4.0",
         title="Skulk OpenAI Integrator",
+        skulk_requires=">=2.0.3,<3",
         executable=executable,
         executable_sha256=executable_sha256,
         arguments=(),

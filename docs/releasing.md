@@ -12,11 +12,12 @@ Prepare these inputs outside the source checkout:
 
 - A reviewed source revision with matching project and manifest versions.
 - A compatible author SDK, owner and publisher. The current qualified local
-  baseline is author SDK 0.5.1 and owner 0.10.0; verify replacement versions
+  baseline is author SDK 0.5.2 and owner 0.10.1; verify replacement versions
   rather than assuming their compatibility.
-- The publisher's lock and complete wheelhouse, including the licensed owner
-  and SDK plus this capability's declared dependencies. The core-only
-  `uv.lock` in this repository is not a publisher lock.
+- The publisher's lock and complete wheelhouse, including the owner
+  and MIT SDK plus this capability's declared dependencies. The root
+  `uv.lock` now includes the opt-in `publisher` group; ordinary core checks
+  use the default development group without SDK access.
 - A publisher identity and protected Ed25519 private-key file. Never commit
   the key, paste it into command arguments or package it with the capability.
 - A new monotonic release sequence, expiry and permanent HTTPS feed address.
@@ -110,3 +111,25 @@ test trust or workflow artifact is not a supported distribution channel.
 Supported package acquisition and independent clean-author reproduction remain
 separate gates from a maintainer installation. See [managed packaging](managed-capability.md)
 and [gateway access boundaries](gateway-chat.md).
+
+## Central first-party publication
+
+Integrator 0.4.0 requires Skulk 2.0.3 or newer and retains owner-local gateway
+access. Install the maintained publisher environment explicitly with
+`uv sync --frozen --group publisher`; use the root lock for wheelhouse generation.
+The SDK source pins in this group are immutable maintainer inputs, not a claim
+that private repository access is the public SDK acquisition experience.
+
+The central publisher builds this public repository at a full reviewed source
+commit through its generic external-capability workflow. It qualifies the
+three runtime platforms and an independent rebuild, then signs through the
+existing protected publisher environment. Store publication is a separate
+verified step. Neither provider credentials nor publisher keys belong in this
+repository or its release inputs. Core-only CI remains credential-free.
+
+Normal installation uses Plugins and the built-in capability store. Keep the
+connected account on its current host; settings and account state live outside
+SDK generations. After Core's generic gateway support is present, use the
+Integrator's settings to enable its model catalog and authorize the local gateway.
+A main-branch source merge or an unsigned workflow artifact alone does not prove
+a published or installed release.
