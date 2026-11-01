@@ -73,6 +73,10 @@ The SDK protocol harness is not the production managed owner, a connected Skulk
 node, signed installation or a distributed-fabric test. Core CI runs without the
 separately licensed SDK and does not claim those managed checks.
 
+Maintainers preparing signed artifacts should follow the
+[release recipe](docs/releasing.md), including dependency custody, immutable
+release identities, normal installation and the separate publication gates.
+
 ## Boundaries
 
 The offline demo deliberately uses `httpx.MockTransport`. A separate owner-only
