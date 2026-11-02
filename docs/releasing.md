@@ -114,7 +114,7 @@ and [gateway access boundaries](gateway-chat.md).
 
 ## Central first-party publication
 
-Integrator 0.4.0 requires Skulk 2.0.3 or newer and retains owner-local gateway
+Integrator 0.4.1 requires Skulk 2.0.3 or newer and retains owner-local gateway
 access. Install the maintained publisher environment explicitly with
 `uv sync --frozen --group publisher`; use the root lock for wheelhouse generation.
 The SDK source pins in this group are immutable maintainer inputs, not a claim
@@ -133,3 +133,7 @@ SDK generations. After Core's generic gateway support is present, use the
 Integrator's settings to enable its model catalog and authorize the local gateway.
 A main-branch source merge or an unsigned workflow artifact alone does not prove
 a published or installed release.
+
+Version 0.4.1 restores Save and Discard after gateway discovery creates a draft.
+The account state schema and permissions are unchanged, so normal updates retain
+the existing connection and settings.
