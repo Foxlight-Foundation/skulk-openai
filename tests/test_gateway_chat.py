@@ -16,6 +16,7 @@ from skulk_openai.chat_request import ChatRequest
 from skulk_openai.chat_stream import chat_events
 from skulk_openai.gateway import GatewayService
 from skulk_openai.management import ManagementServer
+from skulk_openai.provider import CatalogSnapshot
 from skulk_openai.responses import event_bytes
 from skulk_openai.settings import IntegrationSettings, SettingsStore, account_binding
 from tests.test_admission import invocation, prepared
@@ -490,3 +491,89 @@ async def test_owner_can_disable_offline_without_renewing_gateway_delegation(
             )
         ).status_code == 400
     assert capability.provider.requests_started == 0 and len(api.calls) == before
+
+
+async def test_identical_catalog_renewal_preserves_unexpired_gateway_proof(
+    tmp_path: Path,
+) -> None:
+    """Fresh identical facts preserve authority without extending the proof."""
+    capability, service, _, _, proof, _, clock = await configured(tmp_path)
+    original = await capability.current_catalog()
+    assert original is not None
+    clock.now += 1
+    capability.cache.save(
+        original.model_copy(update={"expires_at": original.expires_at + 1})
+    )
+    events = [event async for event in service.generate(proof)]
+    assert events[-1].kind == "completed"
+    assert capability.provider.requests_started == 1
+
+
+async def test_identical_renewal_during_gateway_admission_preserves_authority(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A refresh between admission reads cannot impersonate a policy change."""
+    capability, service, _, _, proof, _, clock = await configured(tmp_path)
+    original = await capability.current_catalog()
+    assert original is not None
+    current_catalog = capability.current_catalog
+    reads = 0
+
+    async def renew_during_read() -> CatalogSnapshot | None:
+        nonlocal reads
+        reads += 1
+        if reads == 2:
+            clock.now += 1
+            capability.cache.save(
+                original.model_copy(update={"expires_at": original.expires_at + 1})
+            )
+        return await current_catalog()
+
+    monkeypatch.setattr(capability, "current_catalog", renew_during_read)
+    events = [event async for event in service.generate(proof)]
+    assert reads >= 3
+    assert events[-1].kind == "completed"
+    assert capability.provider.requests_started == 1
+
+
+@pytest.mark.parametrize("change", ["withdraw", "feature", "name"])
+async def test_renewed_changed_model_claims_still_revoke_gateway_proof(
+    tmp_path: Path, change: str
+) -> None:
+    """Only expiry renewal is ignored; changed model facts reject before egress."""
+    capability, service, _, _, proof, _, clock = await configured(tmp_path)
+    original = await capability.current_catalog()
+    assert original is not None
+    clock.now += 1
+    if change == "withdraw":
+        models = tuple(model for model in original.models if model.slug != "text-a")
+    else:
+        updates = (
+            {"supports_parallel_tool_calls": True}
+            if change == "feature"
+            else {"display_name": "Changed model"}
+        )
+        models = tuple(
+            model.model_copy(update=updates) if model.slug == "text-a" else model
+            for model in original.models
+        )
+    capability.cache.save(
+        original.model_copy(
+            update={"expires_at": original.expires_at + 1, "models": models}
+        )
+    )
+    assert [event.error async for event in service.generate(proof)] == ["policy_denied"]
+    assert capability.provider.requests_started == 0
+
+
+async def test_identical_renewal_cannot_revive_expired_gateway_proof(
+    tmp_path: Path,
+) -> None:
+    """Fresh discovery never extends the independently signed call lifetime."""
+    capability, service, _, _, proof, _, clock = await configured(tmp_path)
+    original = await capability.current_catalog()
+    assert original is not None
+    clock.now = proof.invocation.expires_at + 1
+    capability.cache.save(original.model_copy(update={"expires_at": clock() + 60}))
+    assert [event.error async for event in service.generate(proof)] == ["policy_denied"]
+    assert capability.provider.requests_started == 0
