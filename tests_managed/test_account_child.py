@@ -510,3 +510,23 @@ async def test_overload_media_failure_preserves_active_calls_and_primary_health(
                 await writer.wait_closed()
             server.close()
             await server.wait_closed()
+
+
+def test_only_cached_reads_declare_independent_metadata_admission() -> None:
+    """Public SDK metadata admission cannot expand inference concurrency."""
+    from skulk_openai.managed import descriptors
+
+    for mock in (False, True):
+        contracts = descriptors(mock=mock)
+        assert [contract.metadata_admission for contract in contracts] == [
+            True,
+            False,
+            True,
+            True,
+            False,
+        ]
+        assert all(
+            contract.input_schema == {"type": "object", "additionalProperties": False}
+            for contract in contracts
+            if contract.metadata_admission
+        )

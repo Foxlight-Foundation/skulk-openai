@@ -93,8 +93,8 @@ outside this public reference.
 
 `capability.toml` declares `PyJWT>=2.10,<3` and the project-local
 `skulk_inference_reference` source package alongside the entrypoint, setup shim,
-validator and license. The candidate toolchain is author SDK 0.5.1 with owner
-0.10.0. It adds declared capability roots to the complete signed wheel closure;
+validator and license. The pinned toolchain is author SDK 0.5.3 with owner
+0.10.2. It adds declared capability roots to the complete signed wheel closure;
 it does not require an OpenAI-specific publisher or Skulk integration.
 
 `skulk_openai.managed:build_manifest` is the public publishing factory. For
@@ -115,8 +115,8 @@ exact descriptor/settings schemas. The validator refuses drift in those claims.
 The mock factory profile has its own bundle and callable identities.
 
 The publisher's lock must contain the licensed owner/SDK packages and declared
-capability libraries. This repository's core-only `uv.lock` does not contain the
-licensed owner. With a compatible publisher lock, `capability-wheelhouse --spec
+capability libraries. This repository's `uv.lock` includes the opt-in publisher
+group; core-only checks do not install it. With that publisher lock, `capability-wheelhouse --spec
 capability.toml --lock <publisher-lock> --output <wheelhouse>` builds the union.
 Use that wheelhouse with `capability-build --spec capability.toml`; declared
 dependencies require its isolated v2 runtime. Missing, extra, incompatible or
@@ -135,3 +135,15 @@ Public toolchain distribution, clean-author reproduction, installed setup,
 upgrade/rollback and cross-node qualification remain separate delivery checks.
 Do not hide dependencies in a host launcher, vendor private SDK source or bypass
 inventory verification.
+### Cached metadata during generation
+
+The offers, status and chat-catalog descriptors use the public SDK's
+`skulk.admission=metadata` opt-in. Owner 0.10.2 or later gives these cached,
+empty-input, side-effect-free reads one separate bounded slot while stream media
+is active. They perform no account refresh or provider request. The primary
+control channel remains responsive to health and metadata during generation.
+
+Generation keeps the SDK's existing single workload slot and fail-fast admission.
+Catalogs are read afresh; Core does not queue signed generations until their
+proofs expire or reuse old model availability. Capability policy and catalog
+revision are still checked independently before every provider request.

@@ -12,6 +12,8 @@ from pathlib import Path
 import httpx
 from pydantic import Field, JsonValue, TypeAdapter
 from skulk_capability_sdk.contracts import (
+    METADATA_ADMISSION,
+    METADATA_ADMISSION_ANNOTATION,
     Descriptor,
     Health,
     Hello,
@@ -91,6 +93,7 @@ def descriptors(*, mock: bool = False) -> tuple[Descriptor, ...]:
             output_schema=_OBJECT.validate_python(
                 InferenceDiscovery.model_json_schema()
             ),
+            annotations={METADATA_ADMISSION_ANNOTATION: METADATA_ADMISSION},
         ),
         Descriptor(
             id=prefix + ".generate",
@@ -115,6 +118,7 @@ def descriptors(*, mock: bool = False) -> tuple[Descriptor, ...]:
             description="Local connection/request-start facts; no upstream HTTP.",
             input_schema={"type": "object", "additionalProperties": False},
             output_schema=_OBJECT.validate_python(Status.model_json_schema()),
+            annotations={METADATA_ADMISSION_ANNOTATION: METADATA_ADMISSION},
         ),
         Descriptor(
             id=prefix + ".chat-catalog",
@@ -123,7 +127,10 @@ def descriptors(*, mock: bool = False) -> tuple[Descriptor, ...]:
             description="Cached owner-enabled chat models for a delegated gateway.",
             input_schema={"type": "object", "additionalProperties": False},
             output_schema=chat_catalog_schema(),
-            annotations={"inference.catalog": "chat.completions@0.1.0"},
+            annotations={
+                "inference.catalog": "chat.completions@0.1.0",
+                METADATA_ADMISSION_ANNOTATION: METADATA_ADMISSION,
+            },
         ),
         Descriptor(
             id=prefix + ".chat",
@@ -145,14 +152,14 @@ def descriptors(*, mock: bool = False) -> tuple[Descriptor, ...]:
 def build_manifest(
     *, executable: str, executable_sha256: str, mock: bool = False
 ) -> Manifest:
-    """Build the governed publishing contract using author SDK 0.5.2 or newer.
+    """Build the governed publishing contract using author SDK 0.5.3 or newer.
 
     The publisher replaces the placeholder artifact digest with its measured
     bytes. Account state stays outside both the manifest and generation.
     """
     return Manifest(
         bundle_id="reference.openai.mock" if mock else "reference.openai",
-        bundle_version="0.4.1",
+        bundle_version="0.4.2",
         title="Skulk OpenAI Integrator",
         skulk_requires=">=2.0.3,<3",
         executable=executable,
