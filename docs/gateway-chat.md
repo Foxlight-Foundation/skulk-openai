@@ -81,8 +81,19 @@ Unsupported request fields fail closed instead of being silently ignored.
 
 The settings page persists inference enablement, processing/usage policy, enabled
 models, diagnostics default model, developer instructions, reasoning effort,
-verbosity, function-tool/image permissions, output-character bound, per-hour
-attempt limit, gateway public key and the one-time plan-use notice. Credentials
+verbosity, function-tool/image permissions, optional output-character and per-hour
+attempt caps, gateway public key and the one-time plan-use notice. Both local caps
+are disabled by default (`null`); opt in by saving a positive integer. Image input
+is enabled by default for models that support it. Existing saved numeric caps and
+image choices remain unchanged on upgrade; clear the toggles to remove those caps.
+The request cap counts admitted attempts across both callable surfaces in each
+fixed UTC hour, including failures and attempts made before enabling the cap.
+The output cap counts text, reasoning summaries, function names and arguments,
+not tokens.
+Model limits, bounded transport parsing and request deadlines still apply without
+an owner cap. Explicit legacy caller grants and the small diagnostic tester keep
+their own finite bounds; disabling an owner cap does not widen those grants.
+Neither cap measures the account's remaining plan allowance. Credentials
 and the account-generation fence never appear in browser state. The request
 tester is a secondary diagnostic and obeys saved integration policy.
 

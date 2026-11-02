@@ -15,7 +15,7 @@ from .responses import InvalidResponseStream, server_events
 async def chat_events(
     response: httpx.Response,
     *,
-    maximum_characters: int,
+    maximum_characters: int | None,
 ) -> AsyncGenerator[ChatEvent]:
     """Preserve explicit failure, function deltas, reasoning summaries and usage.
 
@@ -164,7 +164,7 @@ async def chat_events(
                     "response.reasoning_summary_text.done",
                 ):
                     raise ValueError("unsupported event")
-                if characters > maximum_characters:
+                if maximum_characters is not None and characters > maximum_characters:
                     yield ChatEvent(kind="failed", error="output_limit")
                     return
                 if delta:

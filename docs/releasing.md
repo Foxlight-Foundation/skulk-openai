@@ -114,7 +114,7 @@ and [gateway access boundaries](gateway-chat.md).
 
 ## Central first-party publication
 
-Integrator 0.4.3 requires Skulk 2.0.3 or newer and retains owner-local gateway
+Integrator 0.4.4 requires Skulk 2.0.3 or newer and retains owner-local gateway
 access. Install the maintained publisher environment explicitly with
 `uv sync --frozen --group publisher`; use the root lock for wheelhouse generation.
 The SDK source pins in this group are immutable maintainer inputs, not a claim
@@ -144,3 +144,8 @@ Version 0.4.3 keeps gateway authority stable when an account refresh renews only
 the expiry of identical model facts. Current freshness and independent proof
 expiry remain enforced. Account generation, model claims and every owner policy
 field still participate in the gateway revision; changes reject before egress.
+
+Version 0.4.4 makes the local request and output caps opt-in and enables image
+input by default. Existing saved numeric caps and image choices are preserved;
+owners can disable each cap independently in settings. Account state, permission
+declarations and the state schema are unchanged.

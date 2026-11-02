@@ -143,7 +143,11 @@ class GatewayService:
             row = connection.execute(
                 "SELECT attempts FROM gateway_budget WHERE hour=?", (int(now // 3600),)
             ).fetchone()
-            if row is not None and int(row[0]) >= settings.maximum_requests_per_hour:
+            if (
+                settings.maximum_requests_per_hour is not None
+                and row is not None
+                and int(row[0]) >= settings.maximum_requests_per_hour
+            ):
                 raise AuthFailure("permission_missing")
             try:
                 connection.execute(

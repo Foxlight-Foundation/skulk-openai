@@ -211,7 +211,7 @@ class ProviderClient:
         body: dict[str, object],
         *,
         catalog: CatalogSnapshot,
-        maximum_characters: int,
+        maximum_characters: int | None,
     ) -> AsyncGenerator[ChatEvent]:
         """Submit one pre-admitted chat request, without replay or stored context."""
         try:

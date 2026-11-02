@@ -70,8 +70,12 @@ function settings() {
     verbosity: $("verbosity").value || null,
     allow_function_tools: $("tools").checked,
     allow_images: $("images").checked,
-    maximum_output_characters: Number($("output-limit").value),
-    maximum_requests_per_hour: Number($("request-limit").value),
+    maximum_output_characters: $("output-cap-enabled").checked
+      ? Number($("output-limit").value)
+      : null,
+    maximum_requests_per_hour: $("request-cap-enabled").checked
+      ? Number($("request-limit").value)
+      : null,
     gateway_public_key: $("gateway-key").value || null,
     plan_notice_seen: current?.settings.plan_notice_seen ?? false,
   };
@@ -85,8 +89,11 @@ function populate(s) {
   $("verbosity").value = s.verbosity || "";
   $("tools").checked = s.allow_function_tools;
   $("images").checked = s.allow_images;
-  $("output-limit").value = s.maximum_output_characters;
-  $("request-limit").value = s.maximum_requests_per_hour;
+  $("output-cap-enabled").checked = s.maximum_output_characters != null;
+  $("request-cap-enabled").checked = s.maximum_requests_per_hour != null;
+  $("output-limit").value = s.maximum_output_characters ?? "";
+  $("request-limit").value = s.maximum_requests_per_hour ?? "";
+  updateCaps();
   $("gateway-key").value = s.gateway_public_key || "";
   draftModels = new Set(s.models);
   renderModels();
@@ -234,6 +241,18 @@ function update(state) {
   if (connected && !state.settings.plan_notice_seen && !$("welcome").open)
     $("welcome").showModal();
 }
+function updateCaps() {
+  for (const kind of ["output", "request"]) {
+    const enabled = $(`${kind}-cap-enabled`).checked;
+    $(`${kind}-limit-row`).hidden = !enabled;
+    $(`${kind}-limit`).disabled = !enabled;
+  }
+}
+for (const kind of ["output", "request"])
+  $(`${kind}-cap-enabled`).addEventListener("change", () => {
+    updateCaps();
+    changed();
+  });
 async function refresh() {
   const response = await fetch("/api/state", { cache: "no-store" });
   if (!response.ok)
