@@ -201,12 +201,26 @@ nav button {
   border-radius: 6px;
   position: relative;
 }
-nav button span {
-  font-size: 20px;
-  line-height: 1;
+.icon {
+  display: inline-block;
+  flex-shrink: 0;
   width: 18px;
-  text-align: center;
+  height: 18px;
+  vertical-align: -0.2em;
+}
+nav .icon {
   color: var(--focus);
+}
+.refresh,
+.plan a,
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.plan .icon {
+  width: 14px;
+  height: 14px;
 }
 nav button[aria-current="page"] {
   background: var(--selected);

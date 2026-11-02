@@ -25,9 +25,20 @@ class IntegrationSettings(FrozenContract):
     ) = None
     verbosity: Literal["low", "medium", "high"] | None = None
     allow_function_tools: bool = False
-    allow_images: bool = False
-    maximum_output_characters: int = Field(default=32768, ge=256, le=131072)
-    maximum_requests_per_hour: int = Field(default=60, ge=1, le=1000)
+    allow_images: bool = True
+    # Caps round-trip through browser numbers; larger integers lose precision.
+    maximum_output_characters: int | None = Field(
+        default=None,
+        ge=1,
+        le=9007199254740991,
+        description="Optional local output-character cap; null applies no owner cap.",
+    )
+    maximum_requests_per_hour: int | None = Field(
+        default=None,
+        ge=1,
+        le=9007199254740991,
+        description="Optional shared UTC-hour attempt cap; null applies no owner cap.",
+    )
     gateway_public_key: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     # Bind persistent permission to the selected account generation. These
     # owner-only fields never appear in public discovery or browser state.

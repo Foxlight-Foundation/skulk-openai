@@ -315,7 +315,8 @@ class ManagementServer:
                 models=(model,),
                 maximum_attempts=1,
                 maximum_output_characters=min(
-                    1024, self.capability.settings.read().maximum_output_characters
+                    1024,
+                    self.capability.settings.read().maximum_output_characters or 1024,
                 ),
                 lifetime_seconds=60.0,
                 allow_external_unknown_usage=True,
@@ -352,7 +353,8 @@ class ManagementServer:
                         messages=(Message(role="user", content=request.prompt),),
                         maximum_output_characters=min(
                             1024,
-                            self.capability.settings.read().maximum_output_characters,
+                            self.capability.settings.read().maximum_output_characters
+                            or 1024,
                         ),
                     ),
                     requirements=Requirements(
