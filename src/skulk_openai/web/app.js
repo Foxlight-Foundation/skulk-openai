@@ -201,6 +201,10 @@ function update(state) {
   if (!dirty) populate(state.settings);
   else if (previousCatalog !== JSON.stringify(state.cached_models))
     renderModels();
+  // Discovery can create a draft while action() still owns the busy flag.
+  // Restore draft actions when its final refresh runs after that flag clears.
+  $("save").disabled = !dirty || performing;
+  $("discard").disabled = !dirty || performing;
   const selectedTest = $("model").value;
   $("model").replaceChildren(new Option("Choose a model", ""));
   for (const model of state.models.filter((m) =>
