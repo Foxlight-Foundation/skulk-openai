@@ -7,7 +7,7 @@ generic capability host, chat and unified API.
 
 ## Install and configure
 
-**0.4.1 is available in the built-in Foxlight capability store.** Use a compatible
+**Install the signed Integrator from the built-in Foxlight capability store.** Use a compatible
 Skulk 2.0.3 dev build with the generic gateway support in
 [Core PR1301](https://github.com/Foxlight-Foundation/Skulk/pull/1301) and catalog
 hardening in [Core PR1302](https://github.com/Foxlight-Foundation/Skulk/pull/1302).
@@ -98,7 +98,7 @@ arbitrary LAN or paired clients. Hosted availability and usage follow the
 connected account and its app settings. Included-only routing remains unavailable
 until usage can be verified; no free-usage guarantee is made.
 
-This reference is Apache-2.0 licensed. The authoring SDK 0.5.2 uses MIT; the SDK
+This reference is Apache-2.0 licensed. The authoring SDK 0.5.3 uses MIT; the SDK
 owner runtime is separately licensed and its implementation is not vendored here.
 OpenAI is a separate service. This repository is not an OpenAI product or an
 endorsement.
