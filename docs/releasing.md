@@ -12,7 +12,7 @@ Prepare these inputs outside the source checkout:
 
 - A reviewed source revision with matching project and manifest versions.
 - A compatible author SDK, owner and publisher. The current qualified local
-  baseline is author SDK 0.5.2 and owner 0.10.1; verify replacement versions
+  baseline is author SDK 0.5.3 and owner 0.10.2; verify replacement versions
   rather than assuming their compatibility.
 - The publisher's lock and complete wheelhouse, including the owner
   and MIT SDK plus this capability's declared dependencies. The root
@@ -114,7 +114,7 @@ and [gateway access boundaries](gateway-chat.md).
 
 ## Central first-party publication
 
-Integrator 0.4.1 requires Skulk 2.0.3 or newer and retains owner-local gateway
+Integrator 0.4.2 requires Skulk 2.0.3 or newer and retains owner-local gateway
 access. Install the maintained publisher environment explicitly with
 `uv sync --frozen --group publisher`; use the root lock for wheelhouse generation.
 The SDK source pins in this group are immutable maintainer inputs, not a claim
@@ -134,6 +134,8 @@ Integrator's settings to enable its model catalog and authorize the local gatewa
 A main-branch source merge or an unsigned workflow artifact alone does not prove
 a published or installed release.
 
-Version 0.4.1 restores Save and Discard after gateway discovery creates a draft.
+Version 0.4.2 opts cached offers, status and chat discovery into the SDK's bounded
+metadata admission lane, keeping those local reads independent of a long model
+response. Generation retains the ordinary single-workload admission limit.
 The account state schema and permissions are unchanged, so normal updates retain
 the existing connection and settings.
