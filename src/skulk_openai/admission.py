@@ -316,6 +316,7 @@ class GrantStore:
                         grant.maximum_output_characters,
                         settings.maximum_output_characters
                         if settings is not None
+                        and settings.maximum_output_characters is not None
                         else grant.maximum_output_characters,
                     ),
                     expires_at=grant.expires_at,
@@ -335,7 +336,8 @@ class GrantStore:
                         "SELECT attempts FROM gateway_budget WHERE hour=?", (hour,)
                     ).fetchone()
                     if (
-                        budget is not None
+                        settings.maximum_requests_per_hour is not None
+                        and budget is not None
                         and int(budget[0]) >= settings.maximum_requests_per_hour
                     ):
                         raise AuthFailure("permission_missing")

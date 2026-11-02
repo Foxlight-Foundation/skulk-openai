@@ -34,6 +34,7 @@ async def configured(tmp_path: Path):
         usage="app_settings",
         models=("text-a", "text-b"),
         maximum_requests_per_hour=2,
+        allow_images=False,
         gateway_public_key=key.public_key().public_bytes_raw().hex(),
         account_binding=account_binding(catalog.registration_id, catalog.generation),
     )
