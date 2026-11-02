@@ -58,8 +58,14 @@ class GatewayService:
             == account_binding(catalog.registration_id, catalog.generation)
         ):
             return None
+        # Renewing identical picker facts is not a revocation. Freshness is
+        # checked separately on every read and again before provider submission;
+        # account generation, model claims and all owner policy remain bound.
         revision = hashlib.sha256(
-            (catalog.revision + settings.model_dump_json()).encode()
+            (
+                catalog.model_dump_json(exclude={"expires_at"})
+                + settings.model_dump_json()
+            ).encode()
         ).hexdigest()
         return ChatCatalog(
             target_node=self.capability.target_node,
@@ -182,10 +188,12 @@ class GatewayService:
             upstream_catalog = await self.capability.current_catalog()
             if upstream_catalog is None:
                 raise AuthFailure("permission_missing")
-            # Refreshing the account catalog changes routing revision; fail
-            # rather than admitting against a different snapshot by accident.
+            # A freshness-only renewal may occur between these reads. All
+            # authority and model claims must still match the signed snapshot.
             latest = await self.catalog()
-            if latest != catalog:
+            if latest is None or latest.model_dump(
+                exclude={"expires_at"}
+            ) != catalog.model_dump(exclude={"expires_at"}):
                 raise AuthFailure("permission_missing")
             await asyncio.to_thread(self._reserve, proof, settings)
             async with aclosing(

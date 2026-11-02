@@ -85,3 +85,12 @@ verbosity, function-tool/image permissions, output-character bound, per-hour
 attempt limit, gateway public key and the one-time plan-use notice. Credentials
 and the account-generation fence never appear in browser state. The request
 tester is a secondary diagnostic and obeys saved integration policy.
+
+### Catalog renewal and authorization
+
+Gateway catalog revisions bind the account generation, model facts and owner
+policy. Renewing only the freshness deadline of identical facts preserves that
+authority. Discovery and admission still require a currently fresh catalog,
+and the provider rechecks freshness before submission. A renewal never extends
+the signed request lifetime. Changed account, model or policy facts, expired
+proofs and replayed nonces remain refused before provider use.

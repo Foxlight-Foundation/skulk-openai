@@ -159,7 +159,7 @@ def build_manifest(
     """
     return Manifest(
         bundle_id="reference.openai.mock" if mock else "reference.openai",
-        bundle_version="0.4.2",
+        bundle_version="0.4.3",
         title="Skulk OpenAI Integrator",
         skulk_requires=">=2.0.3,<3",
         executable=executable,
