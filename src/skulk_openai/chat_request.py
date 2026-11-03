@@ -6,13 +6,14 @@ from pydantic import Field, JsonValue
 
 from skulk_inference_reference.contracts import FrozenContract
 
+from .file_input import responses_file
 from .settings import IntegrationSettings
 
 
 class ChatRequest(FrozenContract):
     """Explicit supported controls; unsupported sampling fields are rejected."""
 
-    messages: tuple[dict[str, JsonValue], ...] = Field(min_length=1, max_length=128)
+    messages: tuple[dict[str, JsonValue], ...] = Field(min_length=1, max_length=4096)
     stream: bool = False
     stream_options: dict[str, JsonValue] | None = None
     tools: tuple[dict[str, JsonValue], ...] | None = Field(default=None, max_length=32)
@@ -35,6 +36,7 @@ class ChatRequest(FrozenContract):
         if settings.instructions:
             items.append({"role": "developer", "content": settings.instructions})
         pending: set[str] = set()
+        files = 0
         for message in self.messages:
             if set(message) - {
                 "role",
@@ -74,7 +76,7 @@ class ChatRequest(FrozenContract):
                 items.append({"role": wire_role, "content": content})
             elif isinstance(content, list):
                 if role != "user":
-                    raise ValueError("only user content supports images")
+                    raise ValueError("only user content supports attachments")
                 parts: list[JsonValue] = []
                 for part in content:
                     if not isinstance(part, dict):
@@ -95,6 +97,11 @@ class ChatRequest(FrozenContract):
                         ):
                             raise ValueError("only inline images are supported")
                         parts.append({"type": "input_image", "image_url": url})
+                    elif part.get("type") == "file":
+                        files += 1
+                        if files > 8:
+                            raise ValueError("too many attached documents")
+                        parts.append(responses_file(part))
                     else:
                         raise ValueError("unsupported content part")
                 if not parts:

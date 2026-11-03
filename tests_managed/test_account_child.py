@@ -524,6 +524,8 @@ def test_only_cached_reads_declare_independent_metadata_admission() -> None:
             True,
             True,
             False,
+            True,
+            False,
         ]
         assert all(
             contract.input_schema == {"type": "object", "additionalProperties": False}

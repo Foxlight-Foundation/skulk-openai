@@ -28,11 +28,22 @@ from skulk_capability_sdk.contracts import (
     manifest_digest,
 )
 from skulk_capability_sdk.storage import read_startup
-from skulk_capability_sdk.streams import StreamError, StreamFrame, execute_stream
+from skulk_capability_sdk.streams import (
+    InlineMedia,
+    StreamError,
+    StreamFrame,
+    execute_stream,
+)
 from skulk_capability_sdk.wire import ProtocolError, read_message, write_message
 
 from skulk_inference_reference.chat import ChatCatalog, ChatEvent, GatewayProof
 from skulk_inference_reference.contracts import FrozenContract, GenerationEvent
+from skulk_inference_reference.input_body import (
+    BODY_MEDIA_TYPE,
+    STREAMED_CHAT_CONTRACT,
+    StreamedCatalog,
+    StreamedProof,
+)
 
 from .admission import SignedInvocation
 from .auth_contracts import AuthFailure
@@ -48,6 +59,38 @@ from .sessions import SessionManager
 _OBJECT = TypeAdapter(dict[str, JsonValue])
 
 
+async def request_body_chunks(
+    call_id: str, inputs: AsyncIterator[StreamFrame]
+) -> AsyncGenerator[bytes]:
+    """Yield only one complete invocation's sequenced inline request media.
+
+    No provider URL, local path or blob reference can be resolved here. Input
+    completion is required before admission; cancellation/EOF retains no body.
+    """
+    sequence = 0
+    async for frame in inputs:
+        if (
+            frame.call_id != call_id
+            or frame.direction != "caller_to_provider"
+            or frame.sequence != sequence
+        ):
+            raise ValueError("invalid request input sequence")
+        sequence += 1
+        if frame.kind == "started" and frame.sequence == 0:
+            continue
+        if frame.kind == "completed" and frame.payload is None and frame.media is None:
+            return
+        if (
+            frame.kind != "chunk"
+            or frame.payload not in (None, {})
+            or not isinstance(frame.media, InlineMedia)
+            or frame.media.media_type != BODY_MEDIA_TYPE
+        ):
+            raise ValueError("invalid request media frame")
+        yield frame.media.data
+    raise ValueError("request input ended without completion")
+
+
 def management_surfaces() -> tuple[Surface, ...]:
     """Declare the owner-local UI using the existing generic link contract."""
     return (
@@ -55,9 +98,11 @@ def management_surfaces() -> tuple[Surface, ...]:
     )
 
 
-def chat_catalog_schema() -> dict[str, JsonValue]:
+def chat_catalog_schema(*, streamed: bool = False) -> dict[str, JsonValue]:
     """Declare a strict cached catalog, or empty withdrawn availability."""
-    schema = _OBJECT.validate_python(ChatCatalog.model_json_schema())
+    schema = _OBJECT.validate_python(
+        (StreamedCatalog if streamed else ChatCatalog).model_json_schema()
+    )
     definitions = schema.pop("$defs", {})
     return {
         "$defs": definitions,
@@ -144,6 +189,33 @@ def descriptors(*, mock: bool = False) -> tuple[Descriptor, ...]:
             annotations={
                 "inference.contract": "chat.completions@0.1.0",
                 "inference.authorization": "gateway.ed25519@0.1.0",
+            },
+        ),
+        Descriptor(
+            id=prefix + ".chat-catalog-v2",
+            version="0.2.0",
+            title=label + " streamed-input chat models",
+            description="Cached models for bounded signed request-body media.",
+            input_schema={"type": "object", "additionalProperties": False},
+            output_schema=chat_catalog_schema(streamed=True),
+            annotations={
+                "inference.catalog": STREAMED_CHAT_CONTRACT,
+                METADATA_ADMISSION_ANNOTATION: METADATA_ADMISSION,
+            },
+        ),
+        Descriptor(
+            id=prefix + ".chat",
+            version="0.2.0",
+            title=label + " delegated chat with media input",
+            description="Verify a signed body received on the SDK media channel.",
+            input_schema=_OBJECT.validate_python(StreamedProof.model_json_schema()),
+            input_chunk_schema={"type": "object", "additionalProperties": False},
+            output_schema={"type": "object", "additionalProperties": False},
+            io_mode="bidirectional",
+            output_chunk_schema=_OBJECT.validate_python(ChatEvent.model_json_schema()),
+            annotations={
+                "inference.contract": STREAMED_CHAT_CONTRACT,
+                "inference.authorization": "gateway.ed25519@0.2.0",
             },
         ),
     )
@@ -250,6 +322,9 @@ async def serve(startup: Startup) -> None:
     gateway = GatewayService(
         capability, callable_id=published[4].id, revision=published[4].revision
     )
+    streamed_gateway = GatewayService(
+        capability, callable_id=published[6].id, revision=published[6].revision
+    )
     reader, writer = await asyncio.open_unix_connection(startup.socket)
     executions: set[asyncio.Task[None]] = set()
     rejections: set[asyncio.Task[None]] = set()
@@ -258,10 +333,13 @@ async def serve(startup: Startup) -> None:
     async def handler(
         call: StreamInvoke, inputs: AsyncIterator[StreamFrame]
     ) -> AsyncGenerator[StreamFrame]:
-        _ = inputs
         if call.capability_id == published[4].id:
             try:
-                proof = GatewayProof.model_validate_json(json.dumps(call.payload))
+                proof = (
+                    StreamedProof.model_validate_json(json.dumps(call.payload))
+                    if call.version == "0.2.0"
+                    else GatewayProof.model_validate_json(json.dumps(call.payload))
+                )
             except ValueError:
                 yield StreamFrame(
                     call_id=call.call_id,
@@ -272,7 +350,14 @@ async def serve(startup: Startup) -> None:
                 )
                 return
             sequence = 1
-            async with aclosing(gateway.generate(proof)) as events:
+            output = (
+                streamed_gateway.generate_streamed(
+                    proof, request_body_chunks(call.call_id, inputs)
+                )
+                if isinstance(proof, StreamedProof)
+                else gateway.generate(proof)
+            )
+            async with aclosing(output) as events:
                 async for event in events:
                     # Carry the common terminal as a validated chunk before the
                     # transport terminal, retaining usage and finish reason.
@@ -406,7 +491,12 @@ async def serve(startup: Startup) -> None:
                         expected = next(
                             (
                                 item
-                                for item in (published[0], published[2], published[3])
+                                for item in (
+                                    published[0],
+                                    published[2],
+                                    published[3],
+                                    published[5],
+                                )
                                 if item.id == message.capability_id
                             ),
                             None,
@@ -423,7 +513,14 @@ async def serve(startup: Startup) -> None:
                                 error="invalid_payload",
                             )
                         else:
-                            if expected.id == published[3].id:
+                            if expected.id == published[5].id:
+                                catalog = await streamed_gateway.streamed_catalog()
+                                value = (
+                                    catalog.model_dump_json()
+                                    if catalog is not None
+                                    else "{}"
+                                )
+                            elif expected.id == published[3].id:
                                 catalog = await gateway.catalog()
                                 value = (
                                     catalog.model_dump_json()
@@ -447,8 +544,9 @@ async def serve(startup: Startup) -> None:
                         expected = next(
                             (
                                 item
-                                for item in (published[1], published[4])
+                                for item in (published[1], published[4], published[6])
                                 if item.id == message.capability_id
+                                and item.version == message.version
                             ),
                             None,
                         )
