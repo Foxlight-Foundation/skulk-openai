@@ -64,6 +64,7 @@ class API:
                             "slug": "text-b",
                             "display_name": "Second",
                             "visibility": "list",
+                            "input_modalities": ["text"],
                         },
                         {
                             "slug": "hidden",
@@ -74,6 +75,7 @@ class API:
                             "slug": "text-a",
                             "display_name": "First",
                             "visibility": "list",
+                            "input_modalities": ["text"],
                         },
                     ]
                 },

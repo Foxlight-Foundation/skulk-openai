@@ -18,6 +18,7 @@ from skulk_inference_reference.chat import (
 )
 from skulk_inference_reference.input_body import (
     StreamedCatalog,
+    StreamedChatModel,
     StreamedProof,
     receive_body,
 )
@@ -25,6 +26,7 @@ from skulk_inference_reference.input_body import (
 from .auth_contracts import AuthFailure
 from .capability import InferenceCapability
 from .chat_request import ChatRequest
+from .file_input import document_features, validate_document_features
 from .provider import ProviderFailure
 from .settings import IntegrationSettings, SettingsStore, account_binding
 
@@ -59,11 +61,41 @@ class GatewayService:
         catalog = await self.catalog()
         if catalog is None:
             return None
+        upstream = await self.capability.current_catalog()
+        settings = await asyncio.to_thread(self.settings.read)
+        if (
+            upstream is None
+            or hashlib.sha256(
+                (
+                    upstream.model_dump_json(exclude={"expires_at"})
+                    + settings.model_dump_json()
+                ).encode()
+            ).hexdigest()
+            != catalog.catalog_revision
+        ):
+            return None
+        models = {model.slug: model for model in upstream.models}
         return StreamedCatalog.model_validate(
             {
-                **catalog.model_dump(exclude={"contract", "callable_version"}),
+                **catalog.model_dump(
+                    exclude={"contract", "callable_version", "models"}
+                ),
                 "contract": "chat.completions@0.2.0",
                 "callable_version": "0.2.0",
+                "models": tuple(
+                    StreamedChatModel(
+                        id=model.id,
+                        name=model.name,
+                        features=(
+                            *model.features,
+                            *document_features(
+                                models[model.id].input_modalities,
+                                allow_images=settings.allow_images,
+                            ),
+                        ),
+                    ).model_dump()
+                    for model in catalog.models
+                ),
             }
         )
 
@@ -238,8 +270,9 @@ class GatewayService:
                 else:
                     payload = proof.invocation.request
                 request = ChatRequest.model_validate_json(json.dumps(payload))
+                translated = request.responses(settings)
                 body: dict[str, object] = {
-                    **request.responses(settings),
+                    **translated,
                     "model": call.model,
                 }
             except ValueError:
@@ -248,6 +281,27 @@ class GatewayService:
             upstream_catalog = await self.capability.current_catalog()
             if upstream_catalog is None:
                 raise AuthFailure("permission_missing")
+            upstream_model = next(
+                (
+                    model
+                    for model in upstream_catalog.models
+                    if model.slug == call.model
+                ),
+                None,
+            )
+            if upstream_model is None:
+                raise AuthFailure("permission_missing")
+            try:
+                validate_document_features(
+                    translated,
+                    document_features(
+                        upstream_model.input_modalities,
+                        allow_images=settings.allow_images,
+                    ),
+                )
+            except ValueError:
+                yield ChatEvent(kind="failed", error="invalid_request")
+                return
             # A freshness-only renewal may occur between these reads. All
             # authority and model claims must still match the signed snapshot.
             latest = await self.catalog()

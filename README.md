@@ -11,6 +11,9 @@ generic capability host, chat and unified API.
 Skulk 2.0.3 dev build with the generic gateway support in
 [Core PR1301](https://github.com/Foxlight-Foundation/Skulk/pull/1301) and catalog
 hardening in [Core PR1302](https://github.com/Foxlight-Foundation/Skulk/pull/1302).
+Document input additionally needs the v2 media gateway from
+[Core PR1311](https://github.com/Foxlight-Foundation/Skulk/pull/1311) and document-aware Chat.
+See the [streamed input contract](docs/streamed-input.md) for formats and bounds.
 A stable Skulk release cut is separate from these dev-branch changes.
 
 1. Open **Plugins → Browse**, choose **Skulk OpenAI Integrator**, review its signed

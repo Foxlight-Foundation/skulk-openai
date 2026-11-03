@@ -3,11 +3,55 @@
 import base64
 import binascii
 import re
+from typing import Literal
 
 from pydantic import JsonValue
 
 MAX_FILE_BYTES = 8 * 1024 * 1024
 _NAME = re.compile(r"^[^/\\\x00-\x1f\x7f]{1,128}$")
+
+
+def document_features(
+    input_modalities: tuple[str, ...], *, allow_images: bool
+) -> tuple[Literal["text_file_input", "pdf_input"], ...]:
+    """Project implemented Responses file inputs from declared model modalities.
+
+    PDF processing includes page images, so it also respects image permission.
+    Missing modality facts never establish document support.
+    """
+    if "text" not in input_modalities:
+        return ()
+    return (
+        "text_file_input",
+        *(("pdf_input",) if allow_images and "image" in input_modalities else ()),
+    )
+
+
+def validate_document_features(
+    body: dict[str, JsonValue],
+    features: tuple[Literal["text_file_input", "pdf_input"], ...],
+) -> None:
+    """Refuse unsupported documents before reserving usage or contacting upstream."""
+    items = body.get("input")
+    if not isinstance(items, list):
+        return
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        content = item.get("content")
+        if not isinstance(content, list):
+            continue
+        for part in content:
+            if not isinstance(part, dict) or part.get("type") != "input_file":
+                continue
+            filename = part.get("filename")
+            required = (
+                "pdf_input"
+                if isinstance(filename, str) and filename.lower().endswith(".pdf")
+                else "text_file_input"
+            )
+            if required not in features:
+                raise ValueError("selected model does not support this document input")
 
 
 def responses_file(part: dict[str, JsonValue]) -> dict[str, JsonValue]:
