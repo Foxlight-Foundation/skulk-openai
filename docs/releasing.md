@@ -114,7 +114,7 @@ and [gateway access boundaries](gateway-chat.md).
 
 ## Central first-party publication
 
-Integrator 0.4.4 requires Skulk 2.0.3 or newer and retains owner-local gateway
+Integrator 0.4.5 requires Skulk 2.0.3 or newer and retains owner-local gateway
 access. Install the maintained publisher environment explicitly with
 `uv sync --frozen --group publisher`; use the root lock for wheelhouse generation.
 The SDK source pins in this group are immutable maintainer inputs, not a claim
@@ -149,3 +149,8 @@ Version 0.4.4 makes the local request and output caps opt-in and enables image
 input by default. Existing saved numeric caps and image choices are preserved;
 owners can disable each cap independently in settings. Account state, permission
 declarations and the state schema are unchanged.
+
+Version 0.4.5 adds bounded signed media input and inline UTF-8 text/PDF
+documents, plus model/policy-aware document metadata on the v2 catalog. The v1
+contract remains compatible. Account state, permission declarations and the
+state schema are unchanged; no additional document permission switch is added.

@@ -1,9 +1,9 @@
 # Experimental streamed chat input
 
-This is the capability side of `chat.completions@0.2.0`, on the initiative
-branch. It is not part of the installed 0.4.4 release or the current Skulk unified
-API adapter. A compatible generic gateway, signed publication and installed
-end-to-end qualification are still required. The existing 0.1 callable remains.
+Integrator 0.4.5 implements `chat.completions@0.2.0`. Use a compatible Skulk
+generic gateway with versioned input support; source preparation, signed
+publication and installed end-to-end qualification are separate steps. The
+existing 0.1 callable remains for older gateways.
 
 ## Why a separate input channel
 
@@ -16,7 +16,7 @@ modified, and no provider endpoint or account state enters the generic contract.
 The cached `*.chat-catalog-v2@0.2.0` descriptor publishes fresh delegated models
 and the exact `*.chat@0.2.0` descriptor revision. The catalog has the existing
 independent metadata admission annotation. Inference retains workload admission.
-The same callable ID keeps model addressing stable when a future gateway chooses
+The same callable ID keeps model addressing stable when a gateway chooses
 the newer version; gateways must negotiate and prefer one version rather than
 list duplicate models or silently downgrade a large request.
 
@@ -66,8 +66,13 @@ base64, filename, decoded size and basic format, then sends an exact Responses
 `input_file` part. It does not upload through the Files API, parse documents
 locally, follow remote URLs, read filesystem paths or resolve provider file IDs.
 The existing external-processing permission and explicit request attachment
-selection apply. Model-specific acceptance remains an upstream decision; this
-slice does not advertise every account model as file-qualified.
+selection apply. The v2 catalog advertises `text_file_input` when the account
+catalog declares text input. It advertises `pdf_input` only for declared text
+and image input with owner image permission enabled. Missing model facts do not
+produce a support claim. The capability repeats these checks before upstream
+admission; v1 catalogs keep their original feature vocabulary. These are
+declared adapter/model compatibility facts, not an empirical test of every
+account model or document.
 
 OpenAI documents [file input](https://developers.openai.com/api/docs/guides/file-inputs)
 for supporting models. The [ChatGPT-plan preview contract](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)
@@ -75,14 +80,14 @@ allows file inputs but excludes the Files upload API. This adapter uses Response
 file input for text as well as PDF; it does not claim the upstream Chat
 Completions service itself accepts text documents.
 
-## Qualification still required
+## Gateway and installation
 
-Core's generic gateway must negotiate v2, sign body references and own sending,
-backpressure, cancellation and cleanup across the HTTP request lifecycle.
-Its API types need a provider-neutral attachment representation and documented
-request-size behavior. Exercise a second independent provider, the real owner
-bridge, cancellation during upload, metadata during upload/generation, policy
-revocation, malformed packets and cleanup before promotion.
+Skulk's generic v2 gateway negotiates one version, signs body references and
+owns sending, backpressure, cancellation and HTTP cleanup. The source bridge
+and provider-independent tests are in [Core PR1311](https://github.com/Foxlight-Foundation/Skulk/pull/1311).
+Use a reader that also recognizes the document feature metadata for Chat
+attachment selection. Installation must use the signed store artifact and
+normal lifecycle APIs; an isolated source harness does not qualify that path.
 
 Compaction requires an additional continuation contract. This body channel alone
 does not preserve encrypted provider state, reduce context or enable compaction.

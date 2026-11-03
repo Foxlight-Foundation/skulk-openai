@@ -11,7 +11,6 @@ from typing import Literal
 
 from pydantic import Field, JsonValue, TypeAdapter
 
-from .chat import ChatModel
 from .contracts import FrozenContract, Identifier
 
 MAX_BODY_BYTES = 16 * 1024 * 1024
@@ -66,6 +65,30 @@ class StreamedProof(FrozenContract):
     signature: str = Field(pattern=r"^[a-f0-9]{128}$")
 
 
+class StreamedChatModel(FrozenContract):
+    """A duplex destination's implemented input features, separate from v1."""
+
+    id: Identifier
+    name: str = Field(min_length=1, max_length=256)
+    features: tuple[
+        Literal[
+            "image_input",
+            "function_tools",
+            "reasoning_toggle",
+            "text_file_input",
+            "pdf_input",
+        ],
+        ...,
+    ] = Field(
+        default=(),
+        max_length=5,
+        description=(
+            "Implemented model features narrowed by the current owner policy; "
+            "file features apply only to inline text/PDF input."
+        ),
+    )
+
+
 class StreamedCatalog(FrozenContract):
     """Fresh delegated models reachable through the duplex body contract."""
 
@@ -76,7 +99,7 @@ class StreamedCatalog(FrozenContract):
     descriptor_revision: str = Field(pattern=r"^[a-f0-9]{16}$")
     catalog_revision: str = Field(pattern=r"^[a-f0-9]{64}$")
     expires_at: float = Field(gt=0)
-    models: tuple[ChatModel, ...] = Field(max_length=128)
+    models: tuple[StreamedChatModel, ...] = Field(max_length=128)
     processing_domain: Literal["local", "private_site", "external"]
     usage: Literal["none", "included_only", "credits_possible", "unknown"]
     usage_label: str = Field(max_length=80)
