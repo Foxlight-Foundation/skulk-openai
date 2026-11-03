@@ -77,6 +77,11 @@ conversations, hosted MCP, image generation, file search and OpenAI audio endpoi
 are also excluded by the [preview contract](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
 Unsupported request fields fail closed instead of being silently ignored.
 
+The initiative's [streamed-input experiment](streamed-input.md) adds a separate
+0.2 duplex callable for practical-size text/PDF input. Current installed gateways
+still use 0.1 and its 48 KiB input bound. This source work does not enable files
+or compaction in an installed release by itself.
+
 ## Settings
 
 The settings page persists inference enablement, processing/usage policy, enabled

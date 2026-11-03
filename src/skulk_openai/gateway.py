@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 import sqlite3
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, AsyncIterable
 from contextlib import aclosing
 
 from cryptography.exceptions import InvalidSignature
@@ -16,10 +16,17 @@ from skulk_inference_reference.chat import (
     ChatModel,
     GatewayProof,
 )
+from skulk_inference_reference.input_body import (
+    StreamedCatalog,
+    StreamedChatModel,
+    StreamedProof,
+    receive_body,
+)
 
 from .auth_contracts import AuthFailure
 from .capability import InferenceCapability
 from .chat_request import ChatRequest
+from .file_input import document_features, validate_document_features
 from .provider import ProviderFailure
 from .settings import IntegrationSettings, SettingsStore, account_binding
 
@@ -28,7 +35,11 @@ class GatewayService:
     """Delegate only to an owner-selected gateway, bounded by current local policy."""
 
     def __init__(
-        self, capability: InferenceCapability, *, callable_id: str, revision: str
+        self,
+        capability: InferenceCapability,
+        *,
+        callable_id: str,
+        revision: str,
     ) -> None:
         """Bind the managed target and exact published chat stream revision."""
         self.capability = capability
@@ -44,6 +55,49 @@ class GatewayService:
                     hour INTEGER PRIMARY KEY, attempts INTEGER NOT NULL
                 );
             """)
+
+    async def streamed_catalog(self) -> StreamedCatalog | None:
+        """Project identical owner authority into the versioned media contract."""
+        catalog = await self.catalog()
+        if catalog is None:
+            return None
+        upstream = await self.capability.current_catalog()
+        settings = await asyncio.to_thread(self.settings.read)
+        if (
+            upstream is None
+            or hashlib.sha256(
+                (
+                    upstream.model_dump_json(exclude={"expires_at"})
+                    + settings.model_dump_json()
+                ).encode()
+            ).hexdigest()
+            != catalog.catalog_revision
+        ):
+            return None
+        models = {model.slug: model for model in upstream.models}
+        return StreamedCatalog.model_validate(
+            {
+                **catalog.model_dump(
+                    exclude={"contract", "callable_version", "models"}
+                ),
+                "contract": "chat.completions@0.2.0",
+                "callable_version": "0.2.0",
+                "models": tuple(
+                    StreamedChatModel(
+                        id=model.id,
+                        name=model.name,
+                        features=(
+                            *model.features,
+                            *document_features(
+                                models[model.id].input_modalities,
+                                allow_images=settings.allow_images,
+                            ),
+                        ),
+                    ).model_dump()
+                    for model in catalog.models
+                ),
+            }
+        )
 
     async def catalog(self) -> ChatCatalog | None:
         """Return cached owner-enabled models; never refresh tokens or upstreams."""
@@ -100,7 +154,9 @@ class GatewayService:
             usage_url="https://chatgpt.com/settings/usage",
         )
 
-    def _reserve(self, proof: GatewayProof, settings: IntegrationSettings) -> None:
+    def _reserve(
+        self, proof: GatewayProof | StreamedProof, settings: IntegrationSettings
+    ) -> None:
         now = self.capability.clock()
         invocation = proof.invocation
         if not now < invocation.expires_at <= now + 60:
@@ -164,6 +220,24 @@ class GatewayService:
 
     async def generate(self, proof: GatewayProof) -> AsyncGenerator[ChatEvent]:
         """Verify scoped owner delegation and signed input before any content egress."""
+        async with aclosing(self._generate(proof)) as events:
+            async for event in events:
+                yield event
+
+    async def generate_streamed(
+        self, proof: StreamedProof, chunks: AsyncIterable[bytes]
+    ) -> AsyncGenerator[ChatEvent]:
+        """Accept only complete, signed media bodies under current owner policy."""
+        async with aclosing(self._generate(proof, chunks=chunks)) as events:
+            async for event in events:
+                yield event
+
+    async def _generate(
+        self,
+        proof: GatewayProof | StreamedProof,
+        *,
+        chunks: AsyncIterable[bytes] | None = None,
+    ) -> AsyncGenerator[ChatEvent]:
         try:
             catalog = await self.catalog()
             settings = await asyncio.to_thread(self.settings.read)
@@ -180,10 +254,25 @@ class GatewayService:
                 <= self.capability.clock() + 60
             ):
                 raise AuthFailure("permission_missing")
+            # Authenticate the small reference before accepting document bytes.
+            # Admission is still reserved only after the complete body verifies.
             try:
-                request = ChatRequest.model_validate_json(json.dumps(call.request))
+                Ed25519PublicKey.from_public_bytes(
+                    bytes.fromhex(call.public_key)
+                ).verify(bytes.fromhex(proof.signature), call.canonical())
+            except (InvalidSignature, ValueError):
+                raise AuthFailure("permission_missing") from None
+            try:
+                if isinstance(proof, StreamedProof):
+                    if chunks is None:
+                        raise ValueError("streamed request requires media")
+                    payload = await receive_body(proof.invocation.body, chunks)
+                else:
+                    payload = proof.invocation.request
+                request = ChatRequest.model_validate_json(json.dumps(payload))
+                translated = request.responses(settings)
                 body: dict[str, object] = {
-                    **request.responses(settings),
+                    **translated,
                     "model": call.model,
                 }
             except ValueError:
@@ -192,6 +281,27 @@ class GatewayService:
             upstream_catalog = await self.capability.current_catalog()
             if upstream_catalog is None:
                 raise AuthFailure("permission_missing")
+            upstream_model = next(
+                (
+                    model
+                    for model in upstream_catalog.models
+                    if model.slug == call.model
+                ),
+                None,
+            )
+            if upstream_model is None:
+                raise AuthFailure("permission_missing")
+            try:
+                validate_document_features(
+                    translated,
+                    document_features(
+                        upstream_model.input_modalities,
+                        allow_images=settings.allow_images,
+                    ),
+                )
+            except ValueError:
+                yield ChatEvent(kind="failed", error="invalid_request")
+                return
             # A freshness-only renewal may occur between these reads. All
             # authority and model claims must still match the signed snapshot.
             latest = await self.catalog()
