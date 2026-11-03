@@ -92,6 +92,12 @@ inline images. Large-media transfer, paired-client inference authority and
 distributed/declarative/algorithmic routing retain their own acceptance gates.
 The shared reference contract is not an adopted SDK standard.
 
+The initiative branch also contains an experimental
+[streamed request-body contract](docs/streamed-input.md) and text/PDF input
+translation. These are capability-side source work; the current signed release
+and unified API still use the 0.1 chat contract. Promotion requires generic
+gateway support and installed end-to-end qualification.
+
 Live requests require owner consent and capability-owned authority. The API
 supports direct local-owner use; model discovery does not grant permission to
 arbitrary LAN or paired clients. Hosted availability and usage follow the
