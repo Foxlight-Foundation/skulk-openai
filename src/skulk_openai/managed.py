@@ -432,7 +432,7 @@ async def _serve(
     reader, writer = await asyncio.open_unix_connection(startup.socket)
     executions: set[asyncio.Task[None]] = set()
     rejections: set[asyncio.Task[None]] = set()
-    management = ManagementServer(capability)
+    management = ManagementServer(capability, checkpoints=checkpoint_store)
 
     async def handler(
         call: StreamInvoke, inputs: AsyncIterator[StreamFrame]

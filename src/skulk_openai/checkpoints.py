@@ -1,7 +1,7 @@
 """Capability-local caller identity and encrypted transactional checkpoint custody.
 
-No HTTP endpoint or SDK descriptor advertises this implementation yet. Trusted
-owner code issues/revokes caller keys; invocation code must use the worker lease.
+Trusted owner code registers/revokes caller keys; managed invocation code uses
+the worker lease. Public client keys never grant authority without owner approval.
 Provider windows never enter settings, discovery, replicated state or diagnostics.
 """
 
@@ -40,9 +40,11 @@ from skulk_inference_reference.continuation import (
     reserve,
 )
 from skulk_inference_reference.continuation_auth import (
+    ClientRegistration,
     ContinuationCredential,
     ContinuationProof,
     ReceiptProof,
+    RegisteredClient,
     canonical_proof,
 )
 from skulk_inference_reference.contracts import FrozenContract
@@ -270,20 +272,34 @@ class CheckpointStore:
         self, *, models: tuple[str, ...], expires_at: float
     ) -> ContinuationCredential:
         """Owner-issue a client key with explicit models/expiry and no usage ceiling."""
-        # Strict model construction rejects nonfinite expiry before writing any
-        # delegation. This Python owner API is not exposed to inference input.
-        checked = VerifiedCaller(
-            CallerScope(authority=self.authority, subject="pending", generation=1),
-            expires_at=expires_at,
+        key = Ed25519PrivateKey.generate()
+        registration = self.register(
+            ClientRegistration(
+                public_key=key.public_key().public_bytes_raw().hex(),
+                models=models,
+                expires_at=expires_at,
+            )
         )
+        return ContinuationCredential(
+            caller_id=registration.caller_id,
+            private_key=SecretStr(key.private_bytes_raw().hex()),
+        )
+
+    def register(self, request: ClientRegistration) -> RegisteredClient:
+        """Owner-approve a client-generated key without handling its private key.
+
+        Only trusted local owner code may call this API. The independent caller
+        still proves possession on every signed invocation and receipt lookup.
+        """
+        models = request.models
         if not models or len(models) > 128 or len(set(models)) != len(models):
             raise ContinuationFailure("authority_unavailable")
-        key = Ed25519PrivateKey.generate()
+        Ed25519PublicKey.from_public_bytes(bytes.fromhex(request.public_key))
         caller_id = secrets.token_hex(16)
         with self.transaction() as connection:
             connection.execute("BEGIN IMMEDIATE")
             now = self.clock()
-            if checked.expires_at <= now:
+            if request.expires_at <= now:
                 raise ContinuationFailure("expired")
             catalog: CatalogSnapshot | None = None
             for model in models:
@@ -299,19 +315,46 @@ class CheckpointStore:
                 >= 128
             ):
                 raise ContinuationFailure("capacity_exceeded")
-            connection.execute(
-                "INSERT INTO continuation_callers VALUES (?,?,?,?,?,1,1,?)",
-                (
-                    caller_id,
-                    key.public_key().public_bytes_raw().hex(),
-                    catalog.registration_id,
-                    catalog.generation,
-                    json.dumps(models),
-                    expires_at,
-                ),
+            try:
+                connection.execute(
+                    "INSERT INTO continuation_callers VALUES (?,?,?,?,?,1,1,?)",
+                    (
+                        caller_id,
+                        request.public_key,
+                        catalog.registration_id,
+                        catalog.generation,
+                        json.dumps(models),
+                        request.expires_at,
+                    ),
+                )
+            except sqlite3.IntegrityError:
+                raise ContinuationFailure("invalid_transition") from None
+        return RegisteredClient(caller_id=caller_id, **request.model_dump())
+
+    def clients(self) -> tuple[RegisteredClient, ...]:
+        """List current owner-local public grants, without refresh or provider I/O."""
+        with self.transaction() as connection:
+            rows = connection.execute(
+                "SELECT c.id,c.public_key,c.models,c.expires "
+                "FROM continuation_callers c "
+                "JOIN metadata m ON m.key='active' AND m.value=c.registration_id "
+                "JOIN accounts a ON a.registration_id=c.registration_id "
+                "AND a.generation=c.account_generation "
+                "WHERE c.enabled=1 AND c.expires>? ORDER BY c.id LIMIT 128",
+                (self.clock(),),
+            ).fetchall()
+        return tuple(
+            RegisteredClient.model_validate_json(
+                json.dumps(
+                    {
+                        "caller_id": str(row[0]),
+                        "public_key": str(row[1]),
+                        "models": json.loads(str(row[2])),
+                        "expires_at": float(row[3]),
+                    }
+                )
             )
-        return ContinuationCredential(
-            caller_id=caller_id, private_key=SecretStr(key.private_bytes_raw().hex())
+            for row in rows
         )
 
     def revoke(self, caller_id: str) -> None:

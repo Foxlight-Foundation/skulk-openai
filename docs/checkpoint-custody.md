@@ -12,8 +12,10 @@ uv run pytest tests/test_checkpoints.py
 
 ## Caller identity
 
-Trusted owner code issues a distinct Ed25519 key per client, with explicit model
-scope and expiry. Only its public key is persisted. The returned credential has
+Clients can generate a distinct Ed25519 key and submit only its public half for
+[owner approval](client-enrollment.md), with explicit model scope and expiry.
+Only the public key is persisted. The legacy trusted owner helper can also issue
+a caller key directly for local tooling. Its returned credential has
 no upstream token, provider account identifier or permission to refresh an
 account. There is no request/output allowance attached to it; existing optional
 owner ceilings remain independently enforced through the shared hourly journal.
@@ -25,8 +27,9 @@ length, nonce and deadline. The capability derives the authenticated subject
 from its owner-issued registry, never from a client-chosen principal. The
 gateway key and a checkpoint handle do not authenticate an individual client.
 
-Issuance/revocation are trusted owner Python APIs, not remotely callable inference
-operations. This is not yet a production client-enrollment UI, gateway bearer
+Registration/revocation are owner Python APIs and authenticated loopback
+management actions, not remotely callable inference operations. This is not yet
+a client-enrollment UI, gateway bearer
 credential bridge, distributed delegation protocol or adopted SDK identity ABI.
 Stock full-history chat paths remain unaffected.
 

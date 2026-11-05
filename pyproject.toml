@@ -21,6 +21,7 @@ skulk-openai-account = "skulk_openai.setup:main"
 skulk-openai-sign = "skulk_openai.caller:main"
 skulk-openai-capability = "skulk_openai.managed:main"
 skulk-openai-ui = "skulk_openai.ui:main"
+skulk-openai-continuation = "skulk_openai.continuation_client:main"
 
 [dependency-groups]
 # Core's pinned source reader imports these only during release verification;
