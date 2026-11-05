@@ -1384,8 +1384,8 @@ wheels = [
 
 [[package]]
 name = "skulk-capability-nodes"
-version = "0.10.2"
-source = { git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes?rev=3e2abcfcb32019850750fc46f0cac70259625265#3e2abcfcb32019850750fc46f0cac70259625265" }
+version = "0.10.4"
+source = { git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes?rev=43d38cd9d583e460736dbfa6a6cf6a6f76821082#43d38cd9d583e460736dbfa6a6cf6a6f76821082" }
 dependencies = [
     { name = "cryptography" },
     { name = "httpx" },
@@ -1399,8 +1399,8 @@ dependencies = [
 
 [[package]]
 name = "skulk-capability-sdk"
-version = "0.5.3"
-source = { git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes?subdirectory=sdk-public&rev=3e2abcfcb32019850750fc46f0cac70259625265#3e2abcfcb32019850750fc46f0cac70259625265" }
+version = "0.5.5"
+source = { git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes?subdirectory=sdk-public&rev=43d38cd9d583e460736dbfa6a6cf6a6f76821082#43d38cd9d583e460736dbfa6a6cf6a6f76821082" }
 dependencies = [
     { name = "jsonschema" },
     { name = "packaging" },
@@ -1470,8 +1470,8 @@ publisher = [
     { name = "psutil", specifier = ">=7.2.2" },
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "rustworkx", specifier = "==0.17.1" },
-    { name = "skulk-capability-nodes", git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes?rev=3e2abcfcb32019850750fc46f0cac70259625265" },
-    { name = "skulk-capability-sdk", git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes?subdirectory=sdk-public&rev=3e2abcfcb32019850750fc46f0cac70259625265" },
+    { name = "skulk-capability-nodes", git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes?rev=43d38cd9d583e460736dbfa6a6cf6a6f76821082" },
+    { name = "skulk-capability-sdk", git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes?subdirectory=sdk-public&rev=43d38cd9d583e460736dbfa6a6cf6a6f76821082" },
     { name = "tomlkit", specifier = "==0.14.0" },
     { name = "tuf", specifier = "==6.0.0" },
 ]
