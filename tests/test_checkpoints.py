@@ -598,3 +598,71 @@ async def test_distinct_chats_can_dispatch_without_holding_database_over_provide
         second_receipt = two.commit(ANSWER, b"two-private-window")
     assert query(store, credential, first_receipt) == first_receipt
     assert query(store, credential, second_receipt) == second_receipt
+
+
+async def test_exact_capacity_still_allows_dispatch_and_interruption(
+    tmp_path: Path,
+) -> None:
+    store, credential, _ = await ready(tmp_path)
+    receipt = first(store, credential)
+    proof, raw = signed(store, credential, [USER, ANSWER, NEXT], receipt=receipt)
+    with store.worker() as worker:
+        lease = worker.begin(proof, raw)
+        with store.credentials.transaction() as connection:
+            allocation = connection.execute(
+                "SELECT allocation_bytes FROM continuation_records"
+            ).fetchone()[0]
+        store.maximum_storage_bytes = int(allocation)
+        lease.dispatch()
+        lease.close()
+    with store.credentials.transaction() as connection:
+        phase, size, allocation = connection.execute(
+            "SELECT phase,length(payload),allocation_bytes FROM continuation_records"
+        ).fetchone()
+        assert phase == "interrupted"
+        assert int(size) <= int(allocation) <= store.maximum_storage_bytes
+
+
+@pytest.mark.parametrize("expired", [False, True])
+async def test_exact_capacity_crash_recovery_prunes_before_reconciliation(
+    tmp_path: Path, expired: bool
+) -> None:
+    store, credential, clock = await ready(tmp_path)
+    receipt = first(store, credential)
+    proof, raw = signed(store, credential, [USER, ANSWER, NEXT], receipt=receipt)
+    child = multiprocessing.get_context("spawn").Process(
+        target=crash_worker,
+        args=(
+            str(store.credentials.root),
+            clock(),
+            proof.model_dump_json(),
+            raw,
+            "dispatched",
+        ),
+    )
+    child.start()
+    child.join(timeout=20)
+    if child.is_alive():
+        child.kill()
+        child.join(timeout=5)
+        pytest.fail("crash fixture did not exit")
+    assert child.exitcode == 73
+    with store.credentials.transaction() as connection:
+        allocation = connection.execute(
+            "SELECT allocation_bytes FROM continuation_records"
+        ).fetchone()[0]
+    if expired:
+        clock.now += 301
+    reopened = storage(store.credentials.root, clock())
+    reopened.maximum_storage_bytes = int(allocation)
+    with reopened.worker():
+        with reopened.credentials.transaction() as connection:
+            rows = connection.execute(
+                "SELECT phase,length(payload),allocation_bytes "
+                "FROM continuation_records"
+            ).fetchall()
+    if expired:
+        assert not rows
+    else:
+        assert rows[0][0] == "interrupted"
+        assert int(rows[0][1]) <= int(rows[0][2]) <= reopened.maximum_storage_bytes

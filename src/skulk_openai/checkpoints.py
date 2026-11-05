@@ -14,7 +14,7 @@ import sqlite3
 import threading
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import final
 
 from cryptography.exceptions import InvalidSignature, InvalidTag
@@ -151,7 +151,7 @@ class CheckpointStore:
                     scope TEXT PRIMARY KEY, caller_id TEXT NOT NULL,
                     version INTEGER NOT NULL, phase TEXT NOT NULL,
                     expires REAL NOT NULL, payload BLOB NOT NULL,
-                    handle_digest TEXT UNIQUE
+                    handle_digest TEXT UNIQUE, allocation_bytes INTEGER NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS continuation_nonces (
                     caller_id TEXT NOT NULL, nonce TEXT NOT NULL, expires REAL NOT NULL,
@@ -409,7 +409,9 @@ class CheckpointStore:
             raise ContinuationFailure("handle_unavailable") from None
 
     @staticmethod
-    def _aad(scope: str, caller_id: str, state: ContinuationState) -> bytes:
+    def _aad(
+        scope: str, caller_id: str, state: ContinuationState, allocation: int
+    ) -> bytes:
         return json.dumps(
             [
                 "checkpoint-v1",
@@ -418,17 +420,43 @@ class CheckpointStore:
                 state.version,
                 state.phase,
                 state.expires_at,
+                allocation,
             ],
             separators=(",", ":"),
             allow_nan=False,
         ).encode()
+
+    @staticmethod
+    def allocation(record: ProtectedRecord) -> int:
+        """Charge enough sealed bytes to persist the worst cleanup transition.
+
+        Pending state may grow when its phase/version changes at interruption.
+        Reserve that exact serialized growth before admission so neither normal
+        cleanup nor crash recovery needs space beyond the admitted allocation.
+        The 32 bytes cover metadata framing, the GCM nonce and authentication tag.
+        """
+        metadata = record.metadata
+        size = len(metadata.model_dump_json().encode())
+        state = metadata.state
+        if state.phase in {"reserved", "dispatched"}:
+            dispatched = (
+                replace(state, phase="dispatched", version=state.version + 1)
+                if state.phase == "reserved"
+                else state
+            )
+            interrupted = interrupt(dispatched)
+            assert interrupted is not None
+            cleanup = RecordMetadata(state=interrupted, receipt=metadata.receipt)
+            size = max(size, len(cleanup.model_dump_json().encode()))
+        return 32 + size + len(record.window)
 
     def load_record(
         self, connection: sqlite3.Connection, scope: str
     ) -> ProtectedRecord | None:
         """Read and authenticate one private record in the existing transaction."""
         row = connection.execute(
-            "SELECT caller_id,version,phase,expires,length(payload),handle_digest "
+            "SELECT caller_id,version,phase,expires,length(payload),handle_digest,"
+            "allocation_bytes "
             "FROM continuation_records WHERE scope=?",
             (scope,),
         ).fetchone()
@@ -449,6 +477,7 @@ class CheckpointStore:
                 int(row[1]),
                 str(row[2]),
                 float(row[3]),
+                int(row[6]),
             ],
             separators=(",", ":"),
             allow_nan=False,
@@ -459,14 +488,17 @@ class CheckpointStore:
             if not 1 <= size <= 65536 or size + 4 > len(raw):
                 raise ValueError("invalid metadata")
             metadata = RecordMetadata.model_validate_json(raw[4 : 4 + size])
-            if self._aad(scope, str(row[0]), metadata.state) != aad:
+            if self._aad(scope, str(row[0]), metadata.state, int(row[6])) != aad:
                 raise ValueError("metadata mismatch")
             handle = metadata.state.handle
             if (hashlib.sha256(handle.encode()).hexdigest() if handle else None) != row[
                 5
             ]:
                 raise ValueError("handle index mismatch")
-            return ProtectedRecord(metadata, raw[4 + size :])
+            record = ProtectedRecord(metadata, raw[4 + size :])
+            if self.allocation(record) != int(row[6]):
+                raise ValueError("allocation mismatch")
+            return record
         except (InvalidTag, ValueError):
             raise ContinuationFailure("storage_unavailable") from None
 
@@ -492,26 +524,29 @@ class CheckpointStore:
         if len(following.window) > MAX_WINDOW_BYTES or len(header) > 65536:
             raise ContinuationFailure("capacity_exceeded")
         nonce = os.urandom(12)
+        allocation = self.allocation(following)
         payload = nonce + self._cipher.encrypt(
             nonce,
             len(header).to_bytes(4, "big") + header + following.window,
-            self._aad(scope, caller_id, state),
+            self._aad(scope, caller_id, state, allocation),
         )
         count, total = connection.execute(
-            "SELECT COUNT(*),COALESCE(SUM(length(payload)),0) FROM continuation_records"
+            "SELECT COUNT(*),COALESCE(SUM(allocation_bytes),0) "
+            "FROM continuation_records"
         ).fetchone()
         previous = connection.execute(
-            "SELECT length(payload) FROM continuation_records WHERE scope=?", (scope,)
+            "SELECT allocation_bytes FROM continuation_records WHERE scope=?", (scope,)
         ).fetchone()
         if (current is None and int(count) >= self.maximum_records) or int(total) - (
             int(previous[0]) if previous else 0
-        ) + len(payload) > self.maximum_storage_bytes:
+        ) + allocation > self.maximum_storage_bytes:
             raise ContinuationFailure("capacity_exceeded")
         connection.execute(
-            "INSERT INTO continuation_records VALUES (?,?,?,?,?,?,?) "
+            "INSERT INTO continuation_records VALUES (?,?,?,?,?,?,?,?) "
             "ON CONFLICT(scope) DO UPDATE SET caller_id=excluded.caller_id,"
             "version=excluded.version,phase=excluded.phase,expires=excluded.expires,"
-            "payload=excluded.payload,handle_digest=excluded.handle_digest",
+            "payload=excluded.payload,handle_digest=excluded.handle_digest,"
+            "allocation_bytes=excluded.allocation_bytes",
             (
                 scope,
                 caller_id,
@@ -522,6 +557,7 @@ class CheckpointStore:
                 hashlib.sha256(state.handle.encode()).hexdigest()
                 if state.handle
                 else None,
+                allocation,
             ),
         )
 
@@ -587,6 +623,7 @@ class CheckpointWorker:
         self.leases: list[CheckpointLease] = []
         with store.transaction() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            store.prune(connection)
             for (scope,) in connection.execute(
                 "SELECT scope FROM continuation_records "
                 "WHERE phase IN ('reserved','dispatched')"

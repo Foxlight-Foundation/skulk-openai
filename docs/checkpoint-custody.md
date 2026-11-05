@@ -53,6 +53,9 @@ selected account/generation, model and owner policy in the same SQL transaction.
 Nonce fencing, existing optional attempt ceilings, record-version comparison,
 checkpoint and receipt publication are atomic. No database write lock spans a
 provider request. Independent chats can remain in flight concurrently.
+Admission charges the exact worst-case interruption allocation as well as the
+sealed payload, so dispatch, cleanup and crash recovery still fit at capacity.
+Startup prunes expired records before reconciling abandoned attempts.
 
 Account switch/reconnection/disconnect atomically purge checkpoints and revoke
 old caller grants. An actual owner-policy edit purges old checkpoints, preventing
