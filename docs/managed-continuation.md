@@ -43,9 +43,11 @@ not a default or upstream allowance:
 
 The existing selected account and saved integration policy must independently
 permit the model and external processing. Only trusted owner code can currently
-issue/revoke the individual caller key through `CheckpointStore`; the managed
-inference callable never mints a grant. Public client enrollment and retention
-UI are not provided by this source slice. No account token, caller private key,
+register/revoke the individual caller key through `CheckpointStore` or its
+[owner-authenticated management endpoints](client-enrollment.md); the managed
+inference callable never mints a grant. The account-free client CLI keeps private
+material on the client. Management enrollment UI and retention controls remain
+separate. No account token, caller private key,
 provider URL or private window belongs in startup settings or a descriptor.
 
 `profiles` contains independently established `CompactionProfile` records, at

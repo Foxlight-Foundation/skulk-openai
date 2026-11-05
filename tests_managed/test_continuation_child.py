@@ -6,9 +6,10 @@ import secrets
 import signal
 from pathlib import Path
 
+import httpx
 import pytest
 from pydantic import JsonValue, TypeAdapter
-from skulk_capability_sdk.contracts import StreamHello, StreamInvoke
+from skulk_capability_sdk.contracts import Health, StreamHello, StreamInvoke
 from skulk_capability_sdk.streams import (
     InlineMedia,
     StreamEnd,
@@ -30,10 +31,12 @@ from skulk_inference_reference.continuation_wire import (
 )
 from skulk_inference_reference.input_body import BODY_MEDIA_TYPE, MAX_BODY_CHUNK_BYTES
 from skulk_openai.checkpoints import CheckpointPolicy, CheckpointStore
+from skulk_openai.continuation_client import read_key
 from skulk_openai.managed import ContinuationConfiguration, descriptors
 from skulk_openai.settings import IntegrationSettings, account_binding
 from tests.test_admission import prepared
 from tests.test_checkpoints import USER, signed
+from tests.test_continuation_enrollment import cli
 from tests_managed.continuation_child_fixture import LARGE_ARGUMENTS, LARGE_TEXT
 from tests_managed.test_account_child import unary
 from tests_managed.test_child import Child, health, managed_child
@@ -482,3 +485,103 @@ async def test_media_cancellation_retires_dispatched_attempt_and_preserves_healt
                 and not record.window
                 and record.metadata.receipt is None
             )
+
+
+async def test_client_key_owner_http_approval_cli_and_managed_media_roundtrip(
+    tmp_path: Path,
+) -> None:
+    store, _ = await enrolled(tmp_path / "owner")
+    key_file = tmp_path / "client-key.json"
+    code, stdout, stderr = await cli("keygen", "--key-file", str(key_file))
+    assert code == 0 and not stderr
+    public = _OBJECT.validate_json(stdout)
+    async with managed_child(
+        "mock-openai",
+        guarded=True,
+        state_directory=store.credentials.root,
+        continuation=_CONFIG,
+    ) as child:
+        await write_message(child.writer, Health(nonce="enrollment", ready=False))
+        reply = await read_message(child.reader)
+        assert isinstance(reply, Health) and reply.surfaces[0].url is not None
+        async with httpx.AsyncClient(
+            base_url=reply.surfaces[0].url, trust_env=False
+        ) as browser:
+            assert (await browser.get("/")).status_code == 200
+            state = _OBJECT.validate_json((await browser.get("/api/state")).content)
+            assert isinstance(state["csrf"], str)
+            browser.headers.update(
+                {
+                    "Origin": reply.surfaces[0].url.rstrip("/"),
+                    "X-CSRF-Token": state["csrf"],
+                }
+            )
+            registered = await browser.post(
+                "/api/clients/register",
+                json={
+                    **public,
+                    "models": ["text-a"],
+                    "expires_at": store.clock() + 600,
+                },
+            )
+            assert registered.status_code == 200
+            enrollment_file = tmp_path / "enrollment.json"
+            enrollment_file.write_bytes(registered.content)
+            arguments = (
+                "--key-file",
+                str(key_file),
+                "--enrollment-file",
+                str(enrollment_file),
+                "--model",
+                "text-a",
+            )
+            raw = b'{ "messages": [{"role":"user", "content":"hello"}] }\n'
+            code, stdout, stderr = await cli(
+                "sign", *arguments, "--conversation", "1" * 64, stdin=raw
+            )
+            assert code == 0 and not stderr
+            proof = ContinuationProof.model_validate_json(stdout)
+            event = ContinuationEvent.model_validate_json(
+                json.dumps((await invoke(child, proof, raw))[-1])
+            )
+            assert event.receipt is not None
+            code, stdout, stderr = await cli(
+                "receipt",
+                *arguments,
+                "--conversation",
+                "1" * 64,
+                "--request-nonce",
+                proof.request.nonce,
+            )
+            assert code == 0 and not stderr
+            query = ReceiptProof.model_validate_json(stdout)
+            recovered = ReceiptOutcome.model_validate_json(
+                json.dumps((await invoke(child, query))[0])
+            )
+            assert recovered.receipt == event.receipt
+            assert (await unary(child, 2))["requests_started"] == 1
+            assert (
+                await browser.post(
+                    "/api/clients/revoke", json={"caller_id": proof.caller_id}
+                )
+            ).status_code == 200
+            code, stdout, stderr = await cli(
+                "sign", *arguments, "--conversation", "2" * 64, stdin=raw
+            )
+            assert code == 0 and not stderr
+            denied = ContinuationEvent.model_validate_json(
+                json.dumps(
+                    (
+                        await invoke(
+                            child, ContinuationProof.model_validate_json(stdout), raw
+                        )
+                    )[-1]
+                )
+            )
+            assert denied.event.kind == "failed" and denied.receipt is None
+            assert (await unary(child, 2))["requests_started"] == 1
+            await health(child)
+    assert (
+        read_key(key_file).private_key.get_secret_value().encode()
+        not in store.credentials.path.read_bytes()
+    )

@@ -1,5 +1,10 @@
 # OpenAI management page
 
+The initiative source also provides [client enrollment endpoints and an offline
+signer](client-enrollment.md). These require the same owner session/CSRF boundary
+and explicit continuation configuration. They do not yet add enrollment controls
+to the page or enable unified API continuation.
+
 This capability owns a small web page for its account connection, account-specific
 model choices and one explicit test request. It uses the same session storage,
 catalog and signed admission boundary as the managed inference child. It adds no
