@@ -535,8 +535,9 @@ async def test_cancelled_http_stream_closes_without_checkpoint(tmp_path: Path) -
         assert not record.window and record.metadata.receipt is None
 
 
+@pytest.mark.parametrize("cancellations", [1, 3])
 async def test_cancellation_during_sql_admission_owns_eventual_reservation(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cancellations: int
 ) -> None:
     api = ResponseAPI(lambda _: output_events([text_output()]))
     store, credential, provider = await integrated(tmp_path, api)
@@ -554,8 +555,13 @@ async def test_cancellation_during_sql_admission_owns_eventual_reservation(
         output = ContinuationService(worker, provider).generate(proof, raw)
         pending = asyncio.create_task(anext(output))
         assert await asyncio.to_thread(entered.wait, 3)
-        pending.cancel()
-        release.set()
+        try:
+            for _ in range(cancellations):
+                pending.cancel()
+                await asyncio.sleep(0)
+            assert not pending.done()
+        finally:
+            release.set()
         with pytest.raises(asyncio.CancelledError):
             await pending
         assert not worker.leases

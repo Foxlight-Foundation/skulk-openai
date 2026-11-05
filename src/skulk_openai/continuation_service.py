@@ -228,10 +228,16 @@ class ContinuationService:
         try:
             return await asyncio.shield(pending)
         except asyncio.CancelledError:
-            try:
-                lease = await pending
-            except ContinuationFailure:
-                pass
-            else:
-                await self._retire(lease)
+            while True:
+                try:
+                    lease = await asyncio.shield(pending)
+                except asyncio.CancelledError:
+                    # Repeated cancellation still cannot detach a transaction
+                    # from its eventual lease; SQL itself has a bounded timeout.
+                    continue
+                except ContinuationFailure:
+                    break
+                else:
+                    await self._retire(lease)
+                    break
             raise
