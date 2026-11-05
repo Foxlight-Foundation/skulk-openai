@@ -1412,6 +1412,7 @@ name = "skulk-openai"
 version = "0.4.5"
 source = { editable = "." }
 dependencies = [
+    { name = "cryptography" },
     { name = "httpx" },
     { name = "pydantic" },
     { name = "pyjwt", extra = ["crypto"] },
@@ -1444,6 +1445,7 @@ publisher = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=46,<47" },
     { name = "httpx", specifier = ">=0.28,<0.29" },
     { name = "pydantic", specifier = ">=2.12,<3" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },

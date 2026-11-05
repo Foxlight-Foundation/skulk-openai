@@ -7,7 +7,7 @@ nobody. Existing chat contracts do not negotiate or call it implicitly.
 
 import hashlib
 import json
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from typing import Annotated, Literal, Never, Self, final
 
 from pydantic import ConfigDict, Field, JsonValue, TypeAdapter, model_validator
@@ -129,7 +129,9 @@ class ContinuationReceipt(FrozenContract):
 
 
 @final
-@dataclass(frozen=True)
+@pydantic_dataclass(
+    frozen=True, config=ConfigDict(strict=True, extra="forbid", allow_inf_nan=False)
+)
 class Binding:
     """Capability-private scope; the provider's account binding stays local."""
 
@@ -141,7 +143,9 @@ class Binding:
 
 
 @final
-@dataclass(frozen=True)
+@pydantic_dataclass(
+    frozen=True, config=ConfigDict(strict=True, extra="forbid", allow_inf_nan=False)
+)
 class Attempt:
     """Exact reserved request and its verified full input-history fingerprint."""
 
@@ -150,7 +154,9 @@ class Attempt:
 
 
 @final
-@dataclass(frozen=True)
+@pydantic_dataclass(
+    frozen=True, config=ConfigDict(strict=True, extra="forbid", allow_inf_nan=False)
+)
 class ContinuationState:
     """Immutable local metadata for a compare-and-swap storage adapter.
 
@@ -181,6 +187,8 @@ FailureCode = Literal[
     "busy",
     "recovery_required",
     "invalid_transition",
+    "storage_unavailable",
+    "capacity_exceeded",
 ]
 
 

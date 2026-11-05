@@ -15,6 +15,10 @@ They exercise the same semantics without importing OpenAI implementation code.
 The simulated restart copies durable fixture state; it does not qualify real
 process-crash durability, protected storage, encryption, or distributed authority.
 
+The initiative's [checkpoint custody implementation](checkpoint-custody.md) adds
+real client-key verification, encrypted SQLite commits and abrupt process-crash
+tests. Those primitives do not by themselves enable a public continuation ABI.
+
 ## Ownership and explicit opt-in
 
 A stock client continues sending full Chat Completions history. It gets no
