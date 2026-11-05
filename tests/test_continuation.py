@@ -566,3 +566,21 @@ def test_restart_before_dispatch_can_release_only_the_spent_attempt(
         gateway.admit(proof, raw)
     gateway.run(gateway.signed(raw), raw, ANSWER)
     assert gateway.provider.calls == 1
+
+
+@pytest.mark.parametrize("expiry", [float("nan"), float("inf"), -float("inf"), 0.0])
+def test_invalid_authority_snapshots_fail_during_construction(expiry: float) -> None:
+    gateway = GatewayFixture(fixture_provider("local"))
+    with pytest.raises(ValidationError):
+        replace(gateway.owner, expires_at=expiry)
+    with pytest.raises(ValidationError):
+        replace(gateway.callers["alice-token"], expires_at=expiry)
+    assert not gateway.store.states and gateway.provider.calls == 0
+
+
+def test_owner_snapshots_reject_coerced_authority_values() -> None:
+    gateway = GatewayFixture(fixture_provider("local"))
+    with pytest.raises(ValidationError):
+        replace(gateway.owner, enabled="true")
+    with pytest.raises(ValidationError):
+        replace(gateway.owner, expires_at="1000.0")

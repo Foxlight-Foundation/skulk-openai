@@ -10,7 +10,8 @@ import json
 from dataclasses import dataclass, replace
 from typing import Annotated, Literal, Never, Self, final
 
-from pydantic import Field, JsonValue, TypeAdapter, model_validator
+from pydantic import ConfigDict, Field, JsonValue, TypeAdapter, model_validator
+from pydantic.dataclasses import dataclass as pydantic_dataclass
 
 from .contracts import FrozenContract, Identifier
 from .input_body import InputBody
@@ -33,7 +34,10 @@ class CallerScope(FrozenContract):
 
 
 @final
-@dataclass(frozen=True)
+@pydantic_dataclass(
+    frozen=True,
+    config=ConfigDict(strict=True, extra="forbid", allow_inf_nan=False),
+)
 class VerifiedCaller:
     """Trusted adapter input, deliberately lacking a JSON deserialization API.
 
@@ -43,7 +47,7 @@ class VerifiedCaller:
     """
 
     scope: CallerScope
-    expires_at: float
+    expires_at: float = Field(gt=0)
 
 
 @final
@@ -57,7 +61,10 @@ class ContinuationTarget(FrozenContract):
 
 
 @final
-@dataclass(frozen=True)
+@pydantic_dataclass(
+    frozen=True,
+    config=ConfigDict(strict=True, extra="forbid", allow_inf_nan=False),
+)
 class OwnerContext:
     """Current trusted capability-local facts; never serialize into a catalog.
 
@@ -71,7 +78,7 @@ class OwnerContext:
     account_epoch: str
     policy_epoch: str
     enabled: bool
-    expires_at: float
+    expires_at: float = Field(gt=0)
 
 
 @final
