@@ -418,6 +418,60 @@ async def test_unsupplied_function_is_not_forwarded(tmp_path: Path) -> None:
     assert "unrequested_tool" not in events[0].model_dump_json()
 
 
+@pytest.mark.parametrize("empty_snapshot", [False, True])
+async def test_duplicate_call_id_never_reaches_client_or_committed_history(
+    tmp_path: Path, empty_snapshot: bool
+) -> None:
+    def build(_: int) -> list[dict[str, JsonValue]]:
+        events = output_events(
+            [
+                {
+                    "type": "function_call",
+                    "id": f"fc-{index}",
+                    "call_id": "duplicate",
+                    "name": "caller_tool",
+                    "arguments": "{}",
+                    "status": "completed",
+                }
+                for index in (1, 2)
+            ]
+        )
+        if empty_snapshot:
+            response = events[-1]["response"]
+            assert isinstance(response, dict)
+            response["output"] = []
+        return events
+
+    api = ResponseAPI(build)
+    store, credential, provider = await integrated(tmp_path, api)
+    profile = (
+        _PROFILE.model_copy(update={"terminal_output": "empty_snapshot"})
+        if empty_snapshot
+        else _PROFILE
+    )
+    with store.worker() as worker:
+        events = await collect(
+            ContinuationService(worker, provider, profile=profile),
+            store,
+            credential,
+            [USER],
+            tools=True,
+        )
+        assert not worker.leases
+    assert events[-1].event.kind == "failed" and all(
+        event.receipt is None for event in events
+    )
+    assert sum('"id":"duplicate"' in event.model_dump_json() for event in events) == 1
+    with store.credentials.transaction() as connection:
+        scope = str(
+            connection.execute("SELECT scope FROM continuation_records").fetchone()[0]
+        )
+        record = store.load_record(connection, scope)
+        assert (
+            record is not None and not record.window and record.metadata.receipt is None
+        )
+
+
 async def test_revoked_client_cannot_publish_late_receipt(tmp_path: Path) -> None:
     def build(_: int) -> list[dict[str, JsonValue]]:
         store.revoke(credential.caller_id)

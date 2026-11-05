@@ -278,6 +278,7 @@ class AssistantAssembler:
         self.content: list[str] = []
         self.summary: list[str] = []
         self.tools: dict[int, dict[str, JsonValue]] = {}
+        self.identifiers: set[str] = set()
         self.arguments: dict[int, list[str]] = {}
         self.allowed_functions = allowed_functions
         self.allow_parallel = allow_parallel
@@ -304,6 +305,7 @@ class AssistantAssembler:
                     raise ValueError("missing public tool identity")
                 if (
                     not identifier
+                    or identifier in self.identifiers
                     or len(identifier) > 256
                     or not name
                     or len(name) > 256
@@ -314,6 +316,7 @@ class AssistantAssembler:
                     or (self.tools and not self.allow_parallel)
                 ):
                     raise ValueError("public tool is not permitted")
+                self.identifiers.add(identifier)
                 self.tools[index] = {
                     "id": identifier,
                     "type": "function",
