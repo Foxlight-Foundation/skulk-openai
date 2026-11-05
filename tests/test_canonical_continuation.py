@@ -290,6 +290,47 @@ async def test_unsolicited_compaction_is_refused_when_disabled(tmp_path: Path) -
     assert events[-1].event.kind == "failed" and events[-1].receipt is None
 
 
+@pytest.mark.parametrize(
+    "change", ["missing", "empty", "omitted", "duplicated", "reordered"]
+)
+async def test_terminal_output_must_equal_complete_ordered_capture(
+    tmp_path: Path, change: str
+) -> None:
+    def build(_: int) -> list[dict[str, JsonValue]]:
+        events = output_events(compacted_output())
+        response = events[-1]["response"]
+        assert isinstance(response, dict)
+        output = response["output"]
+        assert isinstance(output, list)
+        if change == "missing":
+            del response["output"]
+        else:
+            response["output"] = (
+                []
+                if change == "empty"
+                else output[:-1]
+                if change == "omitted"
+                else [*output, output[-1]]
+                if change == "duplicated"
+                else list(reversed(output))
+            )
+        return events
+
+    api = ResponseAPI(build)
+    store, credential, provider = await integrated(tmp_path, api)
+    with store.worker() as worker:
+        events = await collect(
+            ContinuationService(worker, provider, profile=_PROFILE),
+            store,
+            credential,
+            [USER],
+        )
+        assert events[-1].event.kind == "failed"
+        assert events[-1].event.error == "invalid_stream"
+        assert not worker.leases
+    assert all(event.receipt is None for event in events)
+
+
 @pytest.mark.parametrize("mismatch", ["text", "tool_arguments", "item_identity"])
 async def test_canonical_public_mismatch_never_commits(
     tmp_path: Path, mismatch: str

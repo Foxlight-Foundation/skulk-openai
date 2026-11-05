@@ -165,12 +165,10 @@ class ResponseCapture:
             ):
                 raise ValueError("incomplete canonical output")
             output = response.get("output")
-            if output is not None:
-                if not isinstance(output, list):
-                    raise ValueError("invalid terminal output")
-                for value in output:
-                    if _item(value) not in self.done.values():
-                        raise ValueError("terminal/stream output mismatch")
+            if not isinstance(output, list) or [_item(value) for value in output] != [
+                self.done[index] for index in sorted(self.done)
+            ]:
+                raise ValueError("terminal/stream output mismatch")
             self.completed = True
 
     def validate_message(self, assistant: dict[str, JsonValue]) -> None:
