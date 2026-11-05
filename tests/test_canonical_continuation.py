@@ -1,6 +1,7 @@
 """Guarded HTTP-mock roundtrips over actual caller identity and encrypted custody."""
 
 import asyncio
+import json
 import threading
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
@@ -14,10 +15,11 @@ from skulk_inference_reference.continuation_auth import (
     ContinuationCredential,
     ContinuationProof,
 )
+from skulk_inference_reference.continuation_wire import ContinuationEvent
 from skulk_inference_reference.input_body import InputBody, encode_body
 from skulk_openai.canonical import CanonicalWindow, CompactionProfile
 from skulk_openai.checkpoints import CheckpointLease, CheckpointStore
-from skulk_openai.continuation_service import ContinuationEvent, ContinuationService
+from skulk_openai.continuation_service import ContinuationService
 from skulk_openai.provider import ProviderClient
 from skulk_openai.responses import event_bytes
 from tests.test_checkpoints import NEXT, USER, query, signed
@@ -27,6 +29,43 @@ _OBJECT = TypeAdapter(dict[str, JsonValue])
 _PROFILE = CompactionProfile(
     model="text-a", context_tokens=65536, reserved_output_tokens=8192, threshold=1024
 )
+
+
+@pytest.mark.parametrize("change", ["exact", "tamper", "forged", "incomplete"])
+async def test_signed_media_keeps_exact_bytes_and_authenticates_before_read(
+    tmp_path: Path, change: str
+) -> None:
+    api = ResponseAPI(lambda _: output_events([text_output()]))
+    store, credential, provider = await integrated(tmp_path, api)
+    proof, raw = signed(store, credential, [USER])
+    # Noncanonical whitespace must survive transport; re-encoding after parsing
+    # would invalidate this exact-body signature at journal admission.
+    raw = json.dumps(_OBJECT.validate_json(raw), indent=3).encode()
+    proof = credential.sign(
+        proof.request.model_copy(update={"body": InputBody.from_bytes(raw)})
+    )
+    if change == "forged":
+        proof = proof.model_copy(update={"signature": "0" * 128})
+    consumed = False
+
+    async def chunks() -> AsyncIterator[bytes]:
+        nonlocal consumed
+        consumed = True
+        yield raw if change != "tamper" else raw.replace(b"user", b"tool", 1)
+        if change == "incomplete":
+            raise ValueError("input did not half-close")
+
+    with store.worker() as worker:
+        events = [
+            event
+            async for event in ContinuationService(worker, provider).generate_streamed(
+                proof, chunks()
+            )
+        ]
+        assert not worker.leases
+    assert consumed == (change != "forged")
+    assert events[-1].event.kind == ("completed" if change == "exact" else "failed")
+    assert len(api.requests) == (1 if change == "exact" else 0)
 
 
 def output_events(output: list[dict[str, JsonValue]]) -> list[dict[str, JsonValue]]:

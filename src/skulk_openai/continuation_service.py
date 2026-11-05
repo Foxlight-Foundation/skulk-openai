@@ -2,20 +2,16 @@
 
 import asyncio
 import sqlite3
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, AsyncIterable
 from contextlib import aclosing
-from typing import Self
 
-from pydantic import JsonValue, model_validator
+from pydantic import JsonValue
 
 from skulk_inference_reference.chat import ChatEvent
-from skulk_inference_reference.continuation import (
-    ContinuationFailure,
-    ContinuationReceipt,
-    FailureCode,
-)
+from skulk_inference_reference.continuation import ContinuationFailure
 from skulk_inference_reference.continuation_auth import ContinuationProof
-from skulk_inference_reference.contracts import FrozenContract
+from skulk_inference_reference.continuation_wire import ContinuationEvent
+from skulk_inference_reference.input_body import receive_body_bytes
 
 from .auth_contracts import AuthFailure
 from .canonical import (
@@ -31,28 +27,12 @@ from .provider import CatalogCache, ProviderClient, ProviderFailure
 from .settings import SettingsStore
 
 
-class ContinuationEvent(FrozenContract):
-    """Public chat event plus a committed receipt or bounded recovery classification."""
-
-    event: ChatEvent
-    receipt: ContinuationReceipt | None = None
-    continuation_error: FailureCode | None = None
-
-    @model_validator(mode="after")
-    def terminal_shape(self) -> Self:
-        """Never present uncommitted provider output as a completed continuation."""
-        if (self.event.kind == "completed") != (self.receipt is not None):
-            raise ValueError("completion requires committed continuation receipt")
-        if self.continuation_error is not None and self.event.kind != "failed":
-            raise ValueError("continuation error requires a failed event")
-        return self
-
-
 class ContinuationService:
     """Translate authenticated new history over a protected canonical window.
 
-    This source adapter is not registered in an installed SDK descriptor or HTTP
-    gateway. Its owner supplies an exclusively fenced worker and an explicitly
+    The opt-in managed callable supplies an exclusively fenced worker; HTTP
+    gateway adoption and signed installation remain separate. The owner supplies
+    an explicitly
     established model profile; omitting the profile leaves automatic compaction
     disabled. The caller always supplies full public history for compatibility.
     """
@@ -68,6 +48,32 @@ class ContinuationService:
         self.worker = worker
         self.provider = provider
         self.profile = profile
+
+    async def generate_streamed(
+        self, proof: ContinuationProof, chunks: AsyncIterable[bytes]
+    ) -> AsyncGenerator[ContinuationEvent]:
+        """Authenticate the reference, then preserve exact half-closed body bytes."""
+        try:
+            await asyncio.to_thread(self._authenticate_reference, proof)
+            raw = await receive_body_bytes(proof.request.body, chunks)
+        except ContinuationFailure as failure:
+            yield ContinuationEvent(
+                event=ChatEvent(kind="failed", error="policy_denied"),
+                continuation_error=failure.code,
+            )
+            return
+        except ValueError:
+            yield ContinuationEvent(
+                event=ChatEvent(kind="failed", error="invalid_request")
+            )
+            return
+        async with aclosing(self.generate(proof, raw)) as events:
+            async for event in events:
+                yield event
+
+    def _authenticate_reference(self, proof: ContinuationProof) -> None:
+        with self.worker.store.transaction() as connection:
+            self.worker.store.authenticate(connection, proof)
 
     async def generate(
         self, proof: ContinuationProof, raw: bytes

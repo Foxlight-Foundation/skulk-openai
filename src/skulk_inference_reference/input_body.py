@@ -125,9 +125,9 @@ def _unique_object(pairs: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
     return result
 
 
-async def receive_body(
+async def receive_body_bytes(
     reference: InputBody, chunks: AsyncIterable[bytes]
-) -> dict[str, JsonValue]:
+) -> bytes:
     """Verify the entire half-closed body before parsing or upstream submission.
 
     The caller adapter must yield only correctly sequenced inline media chunks
@@ -148,6 +148,14 @@ async def receive_body(
         or hashlib.sha256(raw).hexdigest() != reference.sha256
     ):
         raise ValueError("request body does not match signed reference")
+    return bytes(raw)
+
+
+async def receive_body(
+    reference: InputBody, chunks: AsyncIterable[bytes]
+) -> dict[str, JsonValue]:
+    """Decode one completely verified media body, rejecting ambiguous JSON."""
+    raw = await receive_body_bytes(reference, chunks)
     # Reject ambiguous JSON encodings before the strict request validator runs.
     try:
         value: object = json.loads(

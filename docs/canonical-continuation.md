@@ -2,9 +2,10 @@
 
 `skulk_openai.continuation_service.ContinuationService` composes the real caller
 registry and protected journal with the normal capability-owned provider client.
-This initiative source is not an installed descriptor, public enrollment flow,
-unified API extension or enabled compaction setting. Existing full-history chat
-continues to use its existing contract.
+The [managed continuation callable](managed-continuation.md) now supplies an
+explicit opt-in SDK transport. This initiative source is not a signed installed
+release, public enrollment flow, unified API extension or enabled compaction
+setting. Existing full-history chat continues to use its existing contract.
 
 The caller signs the exact bounded request bytes and always submits full public
 history. The journal authenticates its independently issued client identity,
