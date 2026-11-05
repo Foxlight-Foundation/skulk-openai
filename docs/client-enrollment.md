@@ -3,7 +3,7 @@
 Continuation clients can now generate their own Ed25519 signing keys and request
 explicit owner approval of the public key. The capability stores the public key,
 model scope, expiry and random caller ID; it never needs the client's private key.
-This is an initiative-source management/API/CLI flow. Signed installation,
+This is an initiative-source management/API/CLI flow. Normal signed installation,
 management UI controls and unified Chat/API adoption remain separate work.
 
 ## Create a client key
@@ -96,5 +96,8 @@ Core tests exercise owner HTTP/CSRF approval, scope/expiry/duplicate refusal,
 client-only private files and actual CLI proofs admitted by the encrypted journal.
 A real managed subprocess test follows key generation, owner HTTP approval,
 offline signing, generation, receipt recovery and revocation. Accounts and upstream
-responses are synthetic; no real account, signed install, production-owner or
-unified HTTP continuation claim follows from those tests.
+responses are synthetic; no real account or unified HTTP continuation claim
+follows from those tests. A separate signed isolated-runtime acceptance exercised
+the normal Core installer/selector and production owner with SDK 0.5.5 / owner
+0.10.4, including restart and revocation. It did not change the installed
+Integrator or qualify automatic compaction. See [managed continuation](managed-continuation.md).

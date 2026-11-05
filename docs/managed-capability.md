@@ -103,8 +103,8 @@ outside this public reference.
 
 `capability.toml` declares `PyJWT>=2.10,<3` and the project-local
 `skulk_inference_reference` source package alongside the entrypoint, setup shim,
-validator and license. The pinned toolchain is author SDK 0.5.3 with owner
-0.10.2. It adds declared capability roots to the complete signed wheel closure;
+validator and license. The pinned toolchain is author SDK 0.5.5 with owner
+0.10.4. It adds declared capability roots to the complete signed wheel closure;
 it does not require an OpenAI-specific publisher or Skulk integration.
 
 `skulk_openai.managed:build_manifest` is the public publishing factory. For
@@ -132,13 +132,18 @@ Use that wheelhouse with `capability-build --spec capability.toml`; declared
 dependencies require its isolated v2 runtime. Missing, extra, incompatible or
 tampered wheels remain refused. Account state stays outside the generation.
 
-Maintainer-local qualification has built and installed a signed 29-wheel runtime
+Earlier maintainer-local qualification built and installed a signed 29-wheel runtime
 with real library wheels and no private SDK source in the capability archive.
 An exported-Core harness with an explicit test host attestation exercised the
 generic installer, selector and launcher, selected SDK owner, live completion,
 hard-policy denial and replay rejection. These are local integration proofs;
 they do not establish a deployed physical node or public package availability.
 The SDK protocol tests above remain fully synthetic.
+
+The pinned continuation candidate has separate [account-free owner acceptance](managed-continuation.md)
+through the normal Core verifier/selector and a signed isolated mock runtime.
+The earlier live-account evidence does not qualify this candidate for a normal
+installed update or effective compaction.
 
 Obtain SDK packages through their supported licensed distribution/access process.
 Public toolchain distribution, clean-author reproduction, installed setup,

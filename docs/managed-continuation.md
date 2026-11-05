@@ -16,8 +16,8 @@ One bidirectional descriptor accepts two strict signed operation types:
 The schemas are in `skulk_inference_reference.continuation_auth` and
 `skulk_inference_reference.continuation_wire`. These modules contain no OpenAI
 implementation imports. The operation domains are distinct: a receipt proof
-cannot authorize generation. The single entry fits the SDK's eight-descriptor
-bundle limit without changing the seven existing descriptors. Neither operation
+cannot authorize generation. The single entry preserves the seven existing
+descriptors and keeps generation and lookup on the same exact destination. Neither operation
 claims cached metadata admission: lookup spends a nonce and rechecks authority.
 
 ## Explicit owner enablement
@@ -120,6 +120,21 @@ uv run basedpyright src/skulk_openai/managed.py examples tests_managed
 uv run pytest tests_managed
 ```
 
-Production-owner schema/admission, public enrollment, generic HTTP/dashboard
-adoption, broad model/context qualification and signed installation still require
-their own evidence. No new live account access is needed by these tests.
+An additional account-free acceptance run used the normal Core 2.0.3 verifier,
+offline installer and selector with a signed isolated mock runtime. Author SDK
+0.5.5 and owner 0.10.4 passed public-key HTTP enrollment, generation, committed
+receipt recovery, replay refusal, owner restart, continuation after restart and
+revocation. Revoked generation and lookup produced complete refusals without
+another provider submission; primary readiness remained available. This run
+qualified macOS ARM64 and synthetic upstream behavior only.
+
+Earlier owner/SDK versions could lose a semantic refusal or its transport terminal
+when a child refused before consuming upload data. The pinned candidate pair
+preserves buffered output and performs a clean output half-close; discarded
+transport bytes never enter the handler. The original call deadline, input
+validation and terminal/cleanup/EOF checks remain enforced.
+
+Generic HTTP/dashboard adoption, broad model/context qualification and normal
+signed installation still require their own evidence. This isolated run does not
+enable automatic compaction or update an installed Integrator. No live account
+access is needed by these tests.

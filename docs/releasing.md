@@ -11,9 +11,10 @@ not evidence of supported public package delivery.
 Prepare these inputs outside the source checkout:
 
 - A reviewed source revision with matching project and manifest versions.
-- A compatible author SDK, owner and publisher. The current qualified local
-  baseline is author SDK 0.5.3 and owner 0.10.2; verify replacement versions
-  rather than assuming their compatibility.
+- A compatible author SDK, owner and publisher. The continuation candidate uses
+  author SDK 0.5.5 and owner 0.10.4, including early-refusal stream cleanup fixes.
+  Installed Integrator 0.4.5 was qualified with SDK 0.5.3 and owner 0.10.2;
+  candidate source checks do not update that installation.
 - The publisher's lock and complete wheelhouse, including the owner
   and MIT SDK plus this capability's declared dependencies. The root
   `uv.lock` now includes the opt-in `publisher` group; ordinary core checks
