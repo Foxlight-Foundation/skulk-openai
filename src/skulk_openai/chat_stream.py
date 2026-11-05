@@ -9,6 +9,7 @@ from pydantic import JsonValue
 
 from skulk_inference_reference.chat import ChatEvent
 
+from .canonical import ResponseCapture
 from .responses import InvalidResponseStream, server_events
 
 
@@ -16,6 +17,7 @@ async def chat_events(
     response: httpx.Response,
     *,
     maximum_characters: int | None,
+    capture: ResponseCapture | None = None,
 ) -> AsyncGenerator[ChatEvent]:
     """Preserve explicit failure, function deltas, reasoning summaries and usage.
 
@@ -36,8 +38,8 @@ async def chat_events(
         async with aclosing(
             server_events(
                 response,
-                maximum_event_bytes=524288,
-                maximum_stream_bytes=2097152,
+                maximum_event_bytes=16_842_752 if capture else 524288,
+                maximum_stream_bytes=67_108_864 if capture else 2097152,
                 maximum_events=8192,
             )
         ) as events:
@@ -53,6 +55,8 @@ async def chat_events(
                     break
                 if terminal is not None:
                     raise ValueError("event after terminal")
+                if capture is not None:
+                    capture.observe(event)
                 kind = event.get("type")
                 delta: dict[str, JsonValue] = {}
                 if kind in (
@@ -99,7 +103,9 @@ async def chat_events(
                                 "function": {"name": name, "arguments": arguments},
                             }
                         ]
-                    elif item.get("type") not in ("message", "reasoning"):
+                    elif item.get("type") not in ("message", "reasoning") and not (
+                        capture is not None and item.get("type") == "compaction"
+                    ):
                         raise ValueError("unsupported tool output")
                 elif kind == "response.function_call_arguments.delta":
                     identifier, arguments = event.get("item_id"), event.get("delta")
@@ -169,10 +175,19 @@ async def chat_events(
                     return
                 if delta:
                     yield ChatEvent(kind="delta", delta=delta)
+        if capture is not None:
+            if terminal is not None and terminal.kind == "completed":
+                capture.seal()
+            else:
+                capture.discard()
         yield terminal or ChatEvent(kind="failed", error="interrupted")
     except (InvalidResponseStream, ValueError):
+        if capture is not None:
+            capture.discard()
         yield ChatEvent(kind="failed", error="invalid_stream")
     except (httpx.HTTPError, TimeoutError):
+        if capture is not None:
+            capture.discard()
         yield (
             terminal
             if terminal is not None and terminal.kind == "failed"

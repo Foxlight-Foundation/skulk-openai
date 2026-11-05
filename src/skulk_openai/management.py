@@ -13,6 +13,11 @@ from typing import Literal
 import httpx
 from pydantic import Field, JsonValue, TypeAdapter
 
+from skulk_inference_reference.continuation import ContinuationFailure
+from skulk_inference_reference.continuation_auth import (
+    ClientEnrollment,
+    ClientRegistration,
+)
 from skulk_inference_reference.contracts import (
     FrozenContract,
     GenerationEvent,
@@ -25,6 +30,7 @@ from skulk_inference_reference.contracts import (
 from .admission import CallerCredential, Invocation
 from .auth_contracts import AuthFailure
 from .capability import InferenceCapability
+from .checkpoints import CheckpointStore
 from .provider import ProviderFailure
 from .settings import IntegrationSettings, account_binding
 from .setup import CallbackListener
@@ -34,6 +40,7 @@ _ASSETS = {
     "/": ("index.html", "text/html"),
     "/assets/app.css": ("app.css", "text/css"),
     "/assets/app.js": ("app.js", "text/javascript"),
+    "/assets/clients.js": ("clients.js", "text/javascript"),
     "/assets/skulk.svg": ("skulk.svg", "image/svg+xml"),
     "/assets/instrument-sans.woff2": ("instrument-sans.woff2", "font/woff2"),
     "/assets/jetbrains-mono.woff2": ("jetbrains-mono.woff2", "font/woff2"),
@@ -69,6 +76,12 @@ class GatewayLookup(FrozenContract):
     port: int = Field(ge=1024, le=65535)
 
 
+class ClientRevoke(FrozenContract):
+    """One owner action removing a caller's authority and checkpoints."""
+
+    caller_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+
+
 @dataclass(frozen=True)
 class _Request:
     method: str
@@ -86,9 +99,15 @@ class ManagementServer:
     This trusts the host user and browser; it is not remote operator delegation.
     """
 
-    def __init__(self, capability: InferenceCapability) -> None:
+    def __init__(
+        self,
+        capability: InferenceCapability,
+        *,
+        checkpoints: CheckpointStore | None = None,
+    ) -> None:
         """Reuse the capability's real session, catalog and admission boundaries."""
         self.capability = capability
+        self.checkpoints = checkpoints
         self.sessions = capability.provider.sessions
         self.server: asyncio.Server | None = None
         self.url = ""
@@ -398,6 +417,29 @@ class ManagementServer:
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
     ) -> None:
+        if request.path in {"/api/clients/register", "/api/clients/revoke"}:
+            if self.checkpoints is None:
+                await self._json(
+                    writer, {"error": "continuation_not_configured"}, status=409
+                )
+                return
+            async with self._operation:
+                if request.path == "/api/clients/register":
+                    registration = ClientRegistration.model_validate_json(request.body)
+                    client = await asyncio.to_thread(
+                        self.checkpoints.register, registration
+                    )
+                    enrollment = ClientEnrollment(
+                        client=client, target=self.checkpoints.target
+                    )
+                    await self._json(
+                        writer, _OBJECT.validate_json(enrollment.model_dump_json())
+                    )
+                else:
+                    revoke = ClientRevoke.model_validate_json(request.body)
+                    await asyncio.to_thread(self.checkpoints.revoke, revoke.caller_id)
+                    await self._json(writer, {"revoked": True})
+            return
         if request.path == "/api/notice":
             if _OBJECT.validate_json(request.body) != {}:
                 raise ValueError("unexpected notice fields")
@@ -597,6 +639,31 @@ class ManagementServer:
                     and request.path == "/api/state"
                 ):
                     await self._json(writer, await self._state())
+                elif (
+                    request.method == "GET"
+                    and not request.body
+                    and request.path == "/api/continuation"
+                ):
+                    clients = (
+                        await asyncio.to_thread(self.checkpoints.clients)
+                        if self.checkpoints
+                        else ()
+                    )
+                    await self._json(
+                        writer,
+                        {
+                            "configured": self.checkpoints is not None,
+                            "target": _OBJECT.validate_json(
+                                self.checkpoints.target.model_dump_json()
+                            )
+                            if self.checkpoints
+                            else None,
+                            "clients": [
+                                _OBJECT.validate_json(client.model_dump_json())
+                                for client in clients
+                            ],
+                        },
+                    )
                 elif request.method == "POST":
                     if (
                         request.headers.get("origin") != self.url
@@ -615,6 +682,13 @@ class ManagementServer:
         except (ValueError, asyncio.IncompleteReadError, asyncio.LimitOverrunError):
             with contextlib.suppress(ConnectionError):
                 await self._json(writer, {"error": "invalid_request"}, status=400)
+        except ContinuationFailure as failure:
+            with contextlib.suppress(ConnectionError):
+                await self._json(
+                    writer,
+                    {"error": "continuation_action_refused", "code": failure.code},
+                    status=409,
+                )
         except (
             AuthFailure,
             ProviderFailure,

@@ -58,6 +58,8 @@ async def test_disconnected_live_profile_owns_idle_worker_and_shuts_down(
     root = tmp_path / "disconnected"
     assert CredentialStore(root).load() is None
 
+    assert not (root / "continuation.key").exists()
+
 
 def test_publishing_manifest_refuses_an_undeclared_management_surface() -> None:
     """Removing its UI declaration cannot leave a superficially valid bundle."""
@@ -525,6 +527,7 @@ def test_only_cached_reads_declare_independent_metadata_admission() -> None:
             True,
             False,
             True,
+            False,
             False,
         ]
         assert all(

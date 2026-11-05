@@ -1,5 +1,14 @@
 # OpenAI management page
 
+The initiative source also provides [client enrollment endpoints and an offline
+signer](client-enrollment.md). These require the same owner session/CSRF boundary
+and explicit continuation configuration. **Skulk access → Continuation clients**
+approves a client public key for selected saved models and a chosen expiry,
+lists active approvals, exports public enrollment JSON and revokes access plus
+its saved checkpoints. Private client keys never enter this page. When protected
+checkpoint storage is not configured, approval is disabled with an explanation.
+Signed deployment and dashboard continuation adoption remain separate gates.
+
 This capability owns a small web page for its account connection, account-specific
 model choices and one explicit test request. It uses the same session storage,
 catalog and signed admission boundary as the managed inference child. It adds no

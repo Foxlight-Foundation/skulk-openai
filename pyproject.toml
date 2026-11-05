@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "skulk-openai"
-version = "0.4.5"
+version = "0.5.0"
 description = "Experimental managed inference capability learning reference"
 requires-python = ">=3.13"
 license = "Apache-2.0"
@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.12,<3",
     "httpx>=0.28,<0.29",
     "pyjwt[crypto]>=2.10,<3",
+    "cryptography>=46,<47",
 ]
 
 [project.scripts]
@@ -20,13 +21,14 @@ skulk-openai-account = "skulk_openai.setup:main"
 skulk-openai-sign = "skulk_openai.caller:main"
 skulk-openai-capability = "skulk_openai.managed:main"
 skulk-openai-ui = "skulk_openai.ui:main"
+skulk-openai-continuation = "skulk_openai.continuation_client:main"
 
 [dependency-groups]
 # Core's pinned source reader imports these only during release verification;
 # they are not additional roots in the capability's signed runtime.
 publisher = [
-    "skulk-capability-nodes==0.10.2",
-    "skulk-capability-sdk==0.5.3",
+    "skulk-capability-nodes==0.10.4",
+    "skulk-capability-sdk==0.5.5",
     "fastapi==0.136.3",
     "loguru==0.7.3",
     "aiofiles==25.1.0",
@@ -67,5 +69,5 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 default-groups = ["dev"]
 
 [tool.uv.sources]
-skulk-capability-nodes = { git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes", rev = "3e2abcfcb32019850750fc46f0cac70259625265" }
-skulk-capability-sdk = { git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes", rev = "3e2abcfcb32019850750fc46f0cac70259625265", subdirectory = "sdk-public" }
+skulk-capability-nodes = { git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes", rev = "43d38cd9d583e460736dbfa6a6cf6a6f76821082" }
+skulk-capability-sdk = { git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes", rev = "43d38cd9d583e460736dbfa6a6cf6a6f76821082", subdirectory = "sdk-public" }
