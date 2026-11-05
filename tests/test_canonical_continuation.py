@@ -31,6 +31,39 @@ _PROFILE = CompactionProfile(
 )
 
 
+@pytest.mark.parametrize(
+    "envelope", ["exact", "wrong_model", "unknown_field", "duplicate"]
+)
+async def test_unified_http_envelope_is_verified_before_translation(
+    tmp_path: Path, envelope: str
+) -> None:
+    """Remove only the signed exact public model address before translation."""
+    api = ResponseAPI(lambda _: output_events([text_output()]))
+    store, credential, provider = await integrated(tmp_path, api)
+    proof, raw = signed(store, credential, [{**USER, "content": "hello 🦊"}])
+    value = _OBJECT.validate_json(raw)
+    address = "capability/independent.chat/text-a"
+    value["model"] = address if envelope != "wrong_model" else address + "-other"
+    if envelope == "unknown_field":
+        value["unknown"] = True
+    raw = json.dumps(value, indent=3, ensure_ascii=False).encode()
+    if envelope == "duplicate":
+        raw = raw.replace(b'"model":', b'"model":"wrong", "model":')
+    proof = credential.sign(
+        proof.request.model_copy(update={"body": InputBody.from_bytes(raw)})
+    )
+    with store.worker() as worker:
+        service = ContinuationService(
+            worker, provider, chat_callable_id="independent.chat"
+        )
+        events = [event async for event in service.generate(proof, raw)]
+    assert events[-1].event.kind == ("completed" if envelope == "exact" else "failed")
+    assert len(api.requests) == (1 if envelope == "exact" else 0)
+    if api.requests:
+        assert api.requests[0]["model"] == "text-a"
+        assert "capability/" not in json.dumps(api.requests)
+
+
 @pytest.mark.parametrize("change", ["exact", "tamper", "forged", "incomplete"])
 async def test_signed_media_keeps_exact_bytes_and_authenticates_before_read(
     tmp_path: Path, change: str

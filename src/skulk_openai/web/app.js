@@ -276,6 +276,7 @@ async function post(path, value = {}) {
 async function action(work) {
   if (performing) return;
   performing = true;
+  window.dispatchEvent?.(new Event("skulk:busy"));
   try {
     await work();
   } catch (error) {
@@ -283,11 +284,13 @@ async function action(work) {
   } finally {
     performing = false;
     await refresh().catch((error) => notify(error.message));
+    window.dispatchEvent?.(new Event("skulk:busy"));
   }
 }
 for (const input of document.querySelectorAll(
   "main input:not(#gateway-port):not(#gateway-key), main select:not(#model), #instructions",
 )) {
+  if (input.closest("#client-enrollment")) continue;
   input.addEventListener("input", changed);
 }
 $("discard").addEventListener("click", () => {

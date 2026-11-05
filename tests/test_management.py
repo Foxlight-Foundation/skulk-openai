@@ -2,6 +2,8 @@
 
 import asyncio
 import json
+import re
+import tomllib
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -20,6 +22,21 @@ from tests.test_admission import prepared
 from tests.test_sessions import setup
 
 _OBJECT = TypeAdapter(dict[str, JsonValue])
+
+
+def test_management_assets_are_in_the_signed_publisher_inputs() -> None:
+    """A standalone UI must not hide a missing script/font in installed archives."""
+    root = Path(__file__).resolve().parents[1]
+    specification = tomllib.loads((root / "capability.toml").read_text())
+    data_files = specification["data_files"]
+    web = root / "src/skulk_openai/web"
+    references = set(re.findall(r"/assets/([\w.-]+)", (web / "index.html").read_text()))
+    references.update(re.findall(r"/assets/([\w.-]+)", (web / "app.css").read_text()))
+    assert "clients.js" in references
+    for name in references:
+        relative = f"src/skulk_openai/web/{name}"
+        assert data_files[f"skulk_openai/web/{name}"] == relative
+        assert (root / relative).is_file()
 
 
 @asynccontextmanager
@@ -58,6 +75,7 @@ async def test_assets_and_cached_status_do_not_contact_provider(tmp_path: Path) 
             ("/", "text/html"),
             ("/assets/app.css", "text/css"),
             ("/assets/app.js", "text/javascript"),
+            ("/assets/clients.js", "text/javascript"),
         ]:
             response = await client.get(path)
             assert response.status_code == 200

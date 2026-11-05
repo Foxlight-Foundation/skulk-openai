@@ -1,8 +1,9 @@
 """Translate supported Chat Completions inputs into plan-usage Responses input."""
 
+import json
 from typing import Literal
 
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, TypeAdapter
 
 from skulk_inference_reference.contracts import FrozenContract
 
@@ -27,6 +28,24 @@ class ChatRequest(FrozenContract):
     inference_policy: (
         Literal["allow_external", "local_only", "included_only"] | None
     ) = None
+
+    @classmethod
+    def from_continuation(
+        cls, raw: bytes, *, model_address: str | None = None
+    ) -> "ChatRequest":
+        """Parse already-authenticated bytes and validate an optional HTTP envelope.
+
+        The checkpoint worker verifies exact bytes and duplicate-free public
+        history first. Only the exact advertised model field may be removed;
+        SDK clients can continue to send the original unwrapped request shape.
+        """
+        value = TypeAdapter(dict[str, JsonValue]).validate_json(raw)
+        if "model" in value:
+            if model_address is None or value.pop("model") != model_address:
+                raise ValueError("HTTP model does not match continuation target")
+        return cls.model_validate_json(
+            json.dumps(value, ensure_ascii=False, allow_nan=False)
+        )
 
     def responses(
         self, settings: IntegrationSettings, *, skip_messages: int = 0
