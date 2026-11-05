@@ -28,16 +28,23 @@ class ChatRequest(FrozenContract):
         Literal["allow_external", "local_only", "included_only"] | None
     ) = None
 
-    def responses(self, settings: IntegrationSettings) -> dict[str, JsonValue]:
+    def responses(
+        self, settings: IntegrationSettings, *, skip_messages: int = 0
+    ) -> dict[str, JsonValue]:
         """Build explicit history without passing unsupported preview parameters."""
         if self.inference_policy in {"local_only", "included_only"}:
             raise ValueError("hard policy excludes provider")
+        if not 0 <= skip_messages < len(self.messages):
+            raise ValueError("invalid continuation message offset")
         items: list[JsonValue] = []
         if settings.instructions:
             items.append({"role": "developer", "content": settings.instructions})
         pending: set[str] = set()
         files = 0
-        for message in self.messages:
+        suffix_offset = 0
+        for index, message in enumerate(self.messages):
+            if index == skip_messages:
+                suffix_offset = len(items)
             if set(message) - {
                 "role",
                 "content",
@@ -145,6 +152,10 @@ class ChatRequest(FrozenContract):
                 raise ValueError("empty message")
         if pending:
             raise ValueError("missing tool results")
+        if skip_messages:
+            # Validate the complete public history, especially pending tool IDs,
+            # before translating only new messages after an authenticated prefix.
+            items = items[suffix_offset:]
         result: dict[str, JsonValue] = {"input": items, "store": False, "stream": True}
         effort = self.reasoning_effort or settings.reasoning_effort
         if self.enable_thinking is False:

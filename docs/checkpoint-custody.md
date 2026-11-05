@@ -98,5 +98,7 @@ Tests use real SQLite, keys and encryption, concurrent threads, abrupt spawned
 process death, signature/body/scope refusal, replay and receipt recovery,
 revocation, policy/account changes, key loss, ciphertext/metadata corruption,
 handle collision, capacity refusal and write-then-fail rollback. Their provider
-effect is a synthetic file sink. They do not qualify OpenAI canonical item
-handling, real compaction, the managed child/HTTP path or installed continuation.
+effect is a synthetic file sink. The separate
+[canonical continuation adapter](canonical-continuation.md) exercises the normal
+provider client over mock HTTP. Neither suite qualifies real compaction, the
+managed child/unified HTTP path or installed continuation.
