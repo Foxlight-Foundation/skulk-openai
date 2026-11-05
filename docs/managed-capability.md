@@ -4,7 +4,7 @@
 connection health, cached discovery, signed caller admission, streaming and
 cleanup. No provider-specific endpoint, engine or state field is added to Skulk.
 
-The live bundle identity is `reference.openai`; its three descriptors are:
+The live bundle identity is `reference.openai`. Current source has eight descriptors:
 
 - `openai.inference.offers@0.1.0`: cached choices, target transport node and catalog
   revision. Discovery initiates no upstream request.
@@ -12,6 +12,14 @@ The live bundle identity is `reference.openai`; its three descriptors are:
   input, common text chunks and explicit completion/failure.
 - `openai.inference.status@0.1.0`: cached connection state and this child's
   request-start count, without account identity or credentials.
+- `openai.inference.chat-catalog@0.1.0` and `openai.inference.chat@0.1.0`:
+  delegated full-history chat catalog and streaming input contract.
+- `openai.inference.chat-catalog-v2@0.2.0` and `openai.inference.chat@0.2.0`:
+  delegated catalog and bounded request-body media.
+- `openai.inference.continuation@0.1.0`: explicit caller-key continuation and
+  receipt operations over bidirectional media. This new initiative contract is
+  opt-in source; see [managed continuation](managed-continuation.md). It has not
+  been published as a signed installed release or adopted by the unified API.
 
 The generate descriptor advertises `text.generate@0.1.0` and the experimental
 `reference.ed25519@0.1.0` authorization requirement. Its exact schema/revision is
@@ -32,6 +40,8 @@ absolute `state_directory`. They contain no provider URL, token, caller key or
 callback URL. Generic owner enablement starts the child; inference additionally
 requires `inference_enabled`, an authorized account, fresh choices and a valid
 caller grant. Management remains available when inference offers are withdrawn.
+Optional continuation startup settings require explicit retention/storage policy;
+they never silently enable compaction or grant a client access.
 
 The default account store is `~/.local/state/skulk-openai`, stable for this user's
 tool installation on this host. Setup and the child use the same helper;

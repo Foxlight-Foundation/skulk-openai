@@ -1,9 +1,10 @@
 # Caller keys and protected checkpoint custody
 
 The initiative branch implements real caller-key verification and encrypted
-transactional storage in `skulk_openai.checkpoints`. This remains source-only:
-no installed SDK descriptor, unified API extension, settings control or compaction
-feature advertises it yet. Tests require no account or fleet:
+transactional storage in `skulk_openai.checkpoints`. An explicit
+[managed SDK callable](managed-continuation.md) now composes this source. Signed
+installation, unified API adoption and management UI controls remain separate;
+existing installed behavior does not advertise continuation. Tests require no account or fleet:
 
 ```sh
 uv run pytest tests/test_checkpoints.py

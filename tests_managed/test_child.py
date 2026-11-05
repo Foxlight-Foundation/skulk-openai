@@ -35,8 +35,8 @@ from skulk_capability_sdk.wire import read_message, write_message
 from examples.managed_child import descriptors
 from skulk_openai.credentials import CredentialStore
 from skulk_openai.managed import Configuration as AccountConfiguration
+from skulk_openai.managed import ContinuationConfiguration, management_surfaces
 from skulk_openai.managed import descriptors as account_descriptors
-from skulk_openai.managed import management_surfaces
 
 pytestmark = pytest.mark.managed
 _REPO = Path(__file__).resolve().parents[1]
@@ -63,6 +63,9 @@ async def managed_child(
     guarded: bool = False,
     disconnected_live: bool = False,
     state_directory: Path | None = None,
+    continuation: ContinuationConfiguration | None = None,
+    entrypoint: Path | None = None,
+    expected_returncode: int = 0,
 ) -> AsyncGenerator[Child]:
     """Launch one real subprocess with private temporary Unix sockets and FD IPC."""
     if disconnected_live and (
@@ -73,6 +76,8 @@ async def managed_child(
         raise ValueError(
             "live-profile exercise requires an isolated disconnected store"
         )
+    if entrypoint is not None and (not guarded or disconnected_live):
+        raise ValueError("fixture entrypoint requires a synthetic guarded child")
     connections: asyncio.Queue[tuple[asyncio.StreamReader, asyncio.StreamWriter]] = (
         asyncio.Queue()
     )
@@ -100,7 +105,9 @@ async def managed_child(
             bundle_version="0.1.0",
             executable=sys.executable,
             executable_sha256=_EXECUTABLE_DIGEST,
-            arguments=("-m", "skulk_openai.managed") if guarded else (str(entry),),
+            arguments=(str(entrypoint),)
+            if entrypoint is not None
+            else (("-m", "skulk_openai.managed") if guarded else (str(entry),)),
             descriptors=account_descriptors(mock=not disconnected_live)
             if guarded
             else descriptors(profile),
@@ -122,6 +129,9 @@ async def managed_child(
             configuration={
                 "inference_enabled": enabled,
                 "state_directory": str(state_directory),
+                "continuation": continuation.model_dump(mode="json")
+                if continuation
+                else None,
             }
             if guarded
             else {
@@ -145,7 +155,10 @@ async def managed_child(
                     stdin=asyncio.subprocess.DEVNULL,
                     stdout=asyncio.subprocess.DEVNULL,
                     stderr=asyncio.subprocess.PIPE,
-                    env={"PATH": os.defpath, "PYTHONPATH": str(repo / "src")},
+                    env={
+                        "PATH": os.defpath,
+                        "PYTHONPATH": os.pathsep.join((str(repo / "src"), str(repo))),
+                    },
                 )
             reader, writer = await asyncio.wait_for(connections.get(), 3)
             hello = await asyncio.wait_for(read_message(reader), 3)
@@ -176,7 +189,7 @@ async def managed_child(
                     assert not await process.stderr.read(), (
                         "child failed with sanitized diagnostic"
                     )
-                assert process.returncode == 0
+                assert process.returncode == expected_returncode
             control.close()
             stream_server.close()
             await control.wait_closed()

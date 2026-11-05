@@ -6,11 +6,12 @@ import json
 import sqlite3
 import sys
 from collections.abc import AsyncGenerator, AsyncIterator
-from contextlib import aclosing
+from contextlib import ExitStack, aclosing
 from pathlib import Path
+from typing import Self
 
 import httpx
-from pydantic import Field, JsonValue, TypeAdapter
+from pydantic import Field, JsonValue, TypeAdapter, model_validator
 from skulk_capability_sdk.contracts import (
     METADATA_ADMISSION,
     METADATA_ADMISSION_ANNOTATION,
@@ -37,6 +38,13 @@ from skulk_capability_sdk.streams import (
 from skulk_capability_sdk.wire import ProtocolError, read_message, write_message
 
 from skulk_inference_reference.chat import ChatCatalog, ChatEvent, GatewayProof
+from skulk_inference_reference.continuation import ContinuationFailure
+from skulk_inference_reference.continuation_auth import ContinuationProof, ReceiptProof
+from skulk_inference_reference.continuation_wire import (
+    ContinuationEvent,
+    ReceiptOutcome,
+    continuation_chunks,
+)
 from skulk_inference_reference.contracts import FrozenContract, GenerationEvent
 from skulk_inference_reference.input_body import (
     BODY_MEDIA_TYPE,
@@ -47,7 +55,10 @@ from skulk_inference_reference.input_body import (
 
 from .admission import SignedInvocation
 from .auth_contracts import AuthFailure
+from .canonical import CompactionProfile
 from .capability import InferenceCapability, InferenceDiscovery
+from .checkpoints import CheckpointPolicy, CheckpointStore
+from .continuation_service import ContinuationService
 from .credentials import CredentialStore, default_state_directory
 from .gateway import GatewayService
 from .management import ManagementServer
@@ -57,6 +68,8 @@ from .responses import event_bytes
 from .sessions import SessionManager
 
 _OBJECT = TypeAdapter(dict[str, JsonValue])
+_CONTINUATION_PROOF = TypeAdapter(ContinuationProof | ReceiptProof)
+_CONTINUATION_OUTPUT = TypeAdapter(ContinuationEvent | ReceiptOutcome)
 
 
 async def request_body_chunks(
@@ -110,11 +123,31 @@ def chat_catalog_schema(*, streamed: bool = False) -> dict[str, JsonValue]:
     }
 
 
+class ContinuationConfiguration(FrozenContract):
+    """Explicit owner checkpoint policy and independently qualified model profiles."""
+
+    storage: CheckpointPolicy
+    profiles: tuple[CompactionProfile, ...] = Field(default=(), max_length=128)
+
+    @model_validator(mode="after")
+    def unique_models(self) -> Self:
+        """Refuse ambiguous model defaults rather than silently choosing a profile."""
+        if len({profile.model for profile in self.profiles}) != len(self.profiles):
+            raise ValueError("duplicate continuation model profile")
+        return self
+
+
 class Configuration(FrozenContract):
     """Owner settings contain no token, grant key, callback or provider URL."""
 
     inference_enabled: bool = False
     state_directory: str | None = Field(default=None, min_length=1, max_length=4096)
+    continuation: ContinuationConfiguration | None = Field(
+        default=None,
+        description=(
+            "Explicit owner opt-in; absent means no checkpoint worker or storage."
+        ),
+    )
 
 
 class Status(FrozenContract):
@@ -218,6 +251,23 @@ def descriptors(*, mock: bool = False) -> tuple[Descriptor, ...]:
                 "inference.authorization": "gateway.ed25519@0.2.0",
             },
         ),
+        Descriptor(
+            id=prefix + ".continuation",
+            version="0.1.0",
+            title=label + " authenticated continuation",
+            description="Signed exact-history media or content-free receipt recovery.",
+            input_schema=_OBJECT.validate_python(_CONTINUATION_PROOF.json_schema()),
+            input_chunk_schema={"type": "object", "additionalProperties": False},
+            output_schema={"type": "object", "additionalProperties": False},
+            io_mode="bidirectional",
+            output_chunk_schema=_OBJECT.validate_python(
+                _CONTINUATION_OUTPUT.json_schema()
+            ),
+            annotations={
+                "inference.contract": "chat.continuation@0.1.0",
+                "inference.authorization": "caller.ed25519@0.1.0",
+            },
+        ),
     )
 
 
@@ -265,11 +315,35 @@ class MockText(httpx.AsyncByteStream):
 
     async def __aiter__(self) -> AsyncIterator[bytes]:
         """Yield text promptly, then allow the caller to cancel before completion."""
+        item: dict[str, JsonValue] = {
+            "type": "message",
+            "id": "synthetic-message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [
+                {"type": "output_text", "text": "synthetic text", "annotations": []}
+            ],
+        }
+        yield event_bytes(
+            {
+                "type": "response.output_item.added",
+                "output_index": 0,
+                "item": {**item, "status": "in_progress", "content": []},
+            }
+        )
         yield event_bytes(
             {"type": "response.output_text.delta", "delta": "synthetic text"}
         )
         await asyncio.sleep(0.2)
-        yield event_bytes({"type": "response.completed"})
+        yield event_bytes(
+            {"type": "response.output_item.done", "output_index": 0, "item": item}
+        )
+        yield event_bytes(
+            {
+                "type": "response.completed",
+                "response": {"status": "completed", "output": [item]},
+            }
+        )
 
     async def aclose(self) -> None:
         """Retain no media or external resources after iterator cleanup."""
@@ -293,7 +367,18 @@ async def serve(startup: Startup) -> None:
     validate_manifest(startup.manifest)
     if startup.credential_config is not None:
         raise ValueError("capability owns its protected account store")
-    configuration = Configuration.model_validate(startup.configuration or {})
+    configuration = Configuration.model_validate_json(
+        json.dumps(startup.configuration or {})
+    )
+    # The process fence outlives every owned SDK call, including cleanup during
+    # disconnect/shutdown. Never recover a journal while another child serves it.
+    with ExitStack() as resources:
+        await _serve(startup, configuration, resources)
+
+
+async def _serve(
+    startup: Startup, configuration: Configuration, resources: ExitStack
+) -> None:
     mock = startup.manifest.bundle_id.endswith(".mock")
     if mock and configuration.state_directory is None:
         raise ValueError(
@@ -325,6 +410,25 @@ async def serve(startup: Startup) -> None:
     streamed_gateway = GatewayService(
         capability, callable_id=published[6].id, revision=published[6].revision
     )
+    checkpoint_store: CheckpointStore | None = None
+    profiles: dict[str, CompactionProfile] = {}
+    worker = None
+    if configuration.continuation is not None:
+        policy = configuration.continuation.storage
+        checkpoint_store = CheckpointStore(
+            sessions.store,
+            target_node=startup.transport_id,
+            callable_id=published[7].id,
+            descriptor_revision=published[7].revision,
+            clock=capability.clock,
+            retention_seconds=policy.retention_seconds,
+            maximum_records=policy.maximum_records,
+            maximum_storage_bytes=policy.maximum_storage_bytes,
+        )
+        worker = resources.enter_context(checkpoint_store.worker())
+        profiles = {
+            profile.model: profile for profile in configuration.continuation.profiles
+        }
     reader, writer = await asyncio.open_unix_connection(startup.socket)
     executions: set[asyncio.Task[None]] = set()
     rejections: set[asyncio.Task[None]] = set()
@@ -333,6 +437,81 @@ async def serve(startup: Startup) -> None:
     async def handler(
         call: StreamInvoke, inputs: AsyncIterator[StreamFrame]
     ) -> AsyncGenerator[StreamFrame]:
+        if call.capability_id == published[7].id:
+            sequence = 1
+            receipt_operation = False
+            try:
+                proof = _CONTINUATION_PROOF.validate_json(json.dumps(call.payload))
+                receipt_operation = isinstance(proof, ReceiptProof)
+                if worker is None or checkpoint_store is None or not capability.enabled:
+                    raise ContinuationFailure("authority_unavailable")
+                if isinstance(proof, ReceiptProof):
+                    async for _ in request_body_chunks(call.call_id, inputs):
+                        raise ValueError("receipt operation forbids request media")
+                    receipt = await asyncio.to_thread(checkpoint_store.receipt, proof)
+                    yield StreamFrame(
+                        call_id=call.call_id,
+                        direction="provider_to_caller",
+                        sequence=sequence,
+                        kind="chunk",
+                        payload=_OBJECT.validate_json(
+                            ReceiptOutcome(receipt=receipt).model_dump_json()
+                        ),
+                    )
+                    sequence += 1
+                else:
+                    service = ContinuationService(
+                        worker,
+                        provider,
+                        profile=profiles.get(proof.request.target.model),
+                    )
+                    async with aclosing(
+                        service.generate_streamed(
+                            proof, request_body_chunks(call.call_id, inputs)
+                        )
+                    ) as events:
+                        async for event in events:
+                            for fragment in continuation_chunks(event):
+                                yield StreamFrame(
+                                    call_id=call.call_id,
+                                    direction="provider_to_caller",
+                                    sequence=sequence,
+                                    kind="chunk",
+                                    payload=_OBJECT.validate_json(
+                                        fragment.model_dump_json()
+                                    ),
+                                )
+                                sequence += 1
+            except (ValueError, ContinuationFailure) as failure:
+                code = (
+                    failure.code
+                    if isinstance(failure, ContinuationFailure)
+                    else "authority_unavailable"
+                )
+                outcome = (
+                    ReceiptOutcome(error=code)
+                    if receipt_operation
+                    else ContinuationEvent(
+                        event=ChatEvent(kind="failed", error="policy_denied"),
+                        continuation_error=code,
+                    )
+                )
+                yield StreamFrame(
+                    call_id=call.call_id,
+                    direction="provider_to_caller",
+                    sequence=sequence,
+                    kind="chunk",
+                    payload=_OBJECT.validate_json(outcome.model_dump_json()),
+                )
+                sequence += 1
+            yield StreamFrame(
+                call_id=call.call_id,
+                direction="provider_to_caller",
+                sequence=sequence,
+                kind="completed",
+                payload={},
+            )
+            return
         if call.capability_id == published[4].id:
             try:
                 proof = (
@@ -544,7 +723,12 @@ async def serve(startup: Startup) -> None:
                         expected = next(
                             (
                                 item
-                                for item in (published[1], published[4], published[6])
+                                for item in (
+                                    published[1],
+                                    published[4],
+                                    published[6],
+                                    published[7],
+                                )
                                 if item.id == message.capability_id
                                 and item.version == message.version
                             ),
@@ -593,6 +777,7 @@ def main() -> None:
     except (
         AuthFailure,
         ProviderFailure,
+        ContinuationFailure,
         OSError,
         ValueError,
         sqlite3.Error,
