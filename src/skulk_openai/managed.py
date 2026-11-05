@@ -266,6 +266,7 @@ def descriptors(*, mock: bool = False) -> tuple[Descriptor, ...]:
             annotations={
                 "inference.contract": "chat.continuation@0.1.0",
                 "inference.authorization": "caller.ed25519@0.1.0",
+                "inference.chat": prefix + ".chat@0.2.0",
             },
         ),
     )
@@ -464,6 +465,7 @@ async def _serve(
                         worker,
                         provider,
                         profile=profiles.get(proof.request.target.model),
+                        chat_callable_id=published[6].id,
                     )
                     async with aclosing(
                         service.generate_streamed(

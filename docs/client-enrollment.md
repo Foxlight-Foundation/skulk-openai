@@ -3,8 +3,15 @@
 Continuation clients can now generate their own Ed25519 signing keys and request
 explicit owner approval of the public key. The capability stores the public key,
 model scope, expiry and random caller ID; it never needs the client's private key.
-This is an initiative-source management/API/CLI flow. Normal signed installation,
-management UI controls and unified Chat/API adoption remain separate work.
+This is an initiative-source management/UI/API/CLI flow. Normal signed installation
+and unified dashboard adoption remain separate work.
+
+In **Skulk access → Continuation clients**, paste the public key, choose saved
+enabled models and a 1-hour, 24-hour or 7-day expiry, then **Approve public key**.
+Return the displayed public enrollment JSON to the matching client. Active grants
+can be exported again or revoked; revocation removes that client's checkpoints.
+Approval requires explicit protected-storage configuration and current account
+authority. Merely presenting a key during inference never enrolls it.
 
 ## Create a client key
 

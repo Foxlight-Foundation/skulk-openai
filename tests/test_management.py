@@ -58,6 +58,7 @@ async def test_assets_and_cached_status_do_not_contact_provider(tmp_path: Path) 
             ("/", "text/html"),
             ("/assets/app.css", "text/css"),
             ("/assets/app.js", "text/javascript"),
+            ("/assets/clients.js", "text/javascript"),
         ]:
             response = await client.get(path)
             assert response.status_code == 200

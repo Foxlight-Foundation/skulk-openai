@@ -726,6 +726,22 @@ dialog .actions {
     width: 110px;
   }
 }
+.client-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.client-row:last-child { border-bottom: 0; }
+.client-row > div { min-width: 0; }
+.client-row code { overflow-wrap: anywhere; }
+.client-row .actions { flex-wrap: wrap; align-content: start; }
+#client-models { width: 100%; min-height: 110px; }
+#client-public-key { width: 100%; }
+@media (max-width: 700px) {
+  .client-row { flex-direction: column; }
+}
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

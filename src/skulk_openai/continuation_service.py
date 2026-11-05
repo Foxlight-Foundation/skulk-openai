@@ -43,11 +43,13 @@ class ContinuationService:
         provider: ProviderClient,
         *,
         profile: CompactionProfile | None = None,
+        chat_callable_id: str | None = None,
     ) -> None:
         """Bind capability-owned effects; constructing the adapter performs no I/O."""
         self.worker = worker
         self.provider = provider
         self.profile = profile
+        self.chat_callable_id = chat_callable_id
 
     async def generate_streamed(
         self, proof: ContinuationProof, chunks: AsyncIterable[bytes]
@@ -86,7 +88,14 @@ class ContinuationService:
             settings = await asyncio.to_thread(
                 SettingsStore(self.worker.store.credentials).read
             )
-            request = ChatRequest.model_validate_json(raw)
+            request = ChatRequest.from_continuation(
+                raw,
+                model_address=(
+                    f"capability/{self.chat_callable_id}/{proof.request.target.model}"
+                    if self.chat_callable_id is not None
+                    else None
+                ),
+            )
             body = request.responses(
                 settings, skip_messages=lease.record.metadata.state.history.count
             )

@@ -40,6 +40,7 @@ _ASSETS = {
     "/": ("index.html", "text/html"),
     "/assets/app.css": ("app.css", "text/css"),
     "/assets/app.js": ("app.js", "text/javascript"),
+    "/assets/clients.js": ("clients.js", "text/javascript"),
     "/assets/skulk.svg": ("skulk.svg", "image/svg+xml"),
     "/assets/instrument-sans.woff2": ("instrument-sans.woff2", "font/woff2"),
     "/assets/jetbrains-mono.woff2": ("jetbrains-mono.woff2", "font/woff2"),

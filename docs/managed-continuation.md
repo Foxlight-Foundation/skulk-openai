@@ -3,6 +3,15 @@
 The initiative source adds the author-defined
 `openai.inference.continuation@0.1.0` callable using public SDK protocol 4.
 The synthetic bundle uses `mock-openai.guarded.continuation@0.1.0` instead.
+
+Its `inference.chat` annotation explicitly identifies the same-owner
+`<chat-callable>@0.2.0` relationship for generic HTTP discovery. Existing seven
+descriptors and v1/v2 catalog shapes are unchanged. The continuation service first
+authenticates the original signed bytes and duplicate-free history. If a `model`
+field is present, it must exactly equal the advertised public
+`capability/<chat-callable>/<model-slug>` address; only that field is removed for
+Responses translation. Unwrapped SDK bodies remain supported. Unknown fields,
+different model addresses and duplicate JSON keys refuse before provider egress.
 This is not a signed installed release or an enabled unified HTTP API feature.
 Existing full-history chat contracts retain their behavior.
 
