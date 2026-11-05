@@ -88,6 +88,51 @@ class CredentialStore:
         finally:
             connection.close()
 
+    def check_protected_path(self, path: Path) -> None:
+        """Validate a capability-owned auxiliary regular file before opening it."""
+        self._check(path)
+
+    @staticmethod
+    def purge_continuations(
+        connection: sqlite3.Connection,
+        registration_id: str | None,
+        *,
+        revoke_callers: bool,
+    ) -> None:
+        """Delete optional checkpoint state within the account/policy transaction.
+
+        The tables may not exist on installations that never enabled this source
+        experiment. Account changes also revoke caller credentials; policy edits
+        remove old checkpoints without widening or replacing their model grants.
+        """
+        tables = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name IN ('continuation_callers','continuation_records')"
+            ).fetchall()
+        }
+        if "continuation_records" in tables:
+            if registration_id is None:
+                connection.execute("DELETE FROM continuation_records")
+            elif "continuation_callers" in tables:
+                connection.execute(
+                    "DELETE FROM continuation_records WHERE caller_id IN "
+                    "(SELECT id FROM continuation_callers WHERE registration_id=?)",
+                    (registration_id,),
+                )
+        if revoke_callers and "continuation_callers" in tables:
+            if registration_id is None:
+                connection.execute(
+                    "UPDATE continuation_callers SET enabled=0,generation=generation+1"
+                )
+            else:
+                connection.execute(
+                    "UPDATE continuation_callers SET enabled=0,generation=generation+1 "
+                    "WHERE registration_id=?",
+                    (registration_id,),
+                )
+
     def host_id(self) -> str:
         """Return the persistent opaque host identity across restart and logout."""
         with self.transaction() as connection:
@@ -185,6 +230,17 @@ class CredentialStore:
             )
             if current is None and count >= 16:
                 raise AuthFailure("credentials_unavailable")
+            previous_active = connection.execute(
+                "SELECT value FROM metadata WHERE key='active'"
+            ).fetchone()
+            self.purge_continuations(connection, registration_id, revoke_callers=True)
+            if (
+                previous_active is not None
+                and str(previous_active[0]) != registration_id
+            ):
+                self.purge_continuations(
+                    connection, str(previous_active[0]), revoke_callers=True
+                )
             generation = (current or 0) + 1
             connection.execute(
                 "INSERT OR REPLACE INTO accounts VALUES (?, ?, ?, ?, 1, ?)",
@@ -267,6 +323,7 @@ class CredentialStore:
                 "WHERE registration_id=?",
                 (registration_id,),
             )
+            self.purge_continuations(connection, registration_id, revoke_callers=True)
             return previous
 
     @asynccontextmanager

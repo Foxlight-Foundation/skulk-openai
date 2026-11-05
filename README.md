@@ -102,6 +102,11 @@ one-use attempts and interruption recovery. Its pure state transitions and two
 unrelated provider fixtures do not enable continuation or compaction in the
 installed integration.
 
+The initiative's [checkpoint custody layer](docs/checkpoint-custody.md) adds
+distinct owner-issued caller keys, encrypted transactional state and actual
+process-crash tests. Client enrollment and continuation are not yet advertised
+through the installed SDK or unified API.
+
 The initiative branch also contains an experimental
 [streamed request-body contract](docs/streamed-input.md) and text/PDF input
 translation. Integrator 0.4.5 and the generic gateway support this media contract

@@ -161,6 +161,13 @@ class GrantStore:
             """)
 
     @staticmethod
+    def require_active_account(
+        connection: sqlite3.Connection, registration_id: str, generation: int
+    ) -> None:
+        """Revalidate account authority inside an existing protected transaction."""
+        GrantStore._account(connection, registration_id, generation)
+
+    @staticmethod
     def _account(
         connection: sqlite3.Connection, registration_id: str, generation: int
     ) -> None:

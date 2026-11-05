@@ -92,6 +92,12 @@ class SettingsStore:
     def save(self, settings: IntegrationSettings) -> None:
         """Replace policy atomically; no network operation or inference occurs."""
         with self.store.transaction() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            previous = connection.execute(
+                "SELECT value FROM metadata WHERE key='integration_settings'"
+            ).fetchone()
+            if previous is None or str(previous[0]) != settings.model_dump_json():
+                self.store.purge_continuations(connection, None, revoke_callers=False)
             connection.execute(
                 "INSERT OR REPLACE INTO metadata VALUES ('integration_settings', ?)",
                 (settings.model_dump_json(),),
