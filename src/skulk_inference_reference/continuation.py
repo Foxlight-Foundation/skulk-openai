@@ -198,7 +198,7 @@ class ContinuationFailure(Exception):
     def __init__(self, code: FailureCode) -> None:
         """Keep only a stable classification for explicit caller recovery."""
         super().__init__(code)
-        self.code = code
+        self.code: FailureCode = code
 
 
 def append_message(

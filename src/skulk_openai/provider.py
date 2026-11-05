@@ -20,6 +20,7 @@ from skulk_inference_reference.contracts import (
 )
 
 from .auth_contracts import AuthFailure, Registration
+from .canonical import ResponseCapture
 from .chat_stream import chat_events
 from .responses import response_events
 from .sessions import SessionManager
@@ -212,6 +213,7 @@ class ProviderClient:
         *,
         catalog: CatalogSnapshot,
         maximum_characters: int | None,
+        capture: ResponseCapture | None = None,
     ) -> AsyncGenerator[ChatEvent]:
         """Submit one pre-admitted chat request, without replay or stored context."""
         try:
@@ -235,7 +237,11 @@ class ProviderClient:
                     json=body,
                 ) as response:
                     async with aclosing(
-                        chat_events(response, maximum_characters=maximum_characters)
+                        chat_events(
+                            response,
+                            maximum_characters=maximum_characters,
+                            capture=capture,
+                        )
                     ) as events:
                         async for event in events:
                             yield event
