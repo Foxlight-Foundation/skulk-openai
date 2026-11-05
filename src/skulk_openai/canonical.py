@@ -25,8 +25,18 @@ class CompactionProfile(FrozenContract):
 
     model: Identifier
     context_tokens: int = Field(ge=1, le=16_000_000)
-    reserved_output_tokens: int = Field(ge=1, le=16_000_000)
+    reserved_output_tokens: int = Field(
+        ge=1,
+        le=16_000_000,
+        description="Threshold headroom, never an upstream or owner output cap.",
+    )
     threshold: int | None = Field(default=None, ge=1024)
+    terminal_output: Literal["complete", "empty_snapshot"] = Field(
+        default="complete",
+        description=(
+            "Qualified serving-path snapshot dialect, never inferred from a response."
+        ),
+    )
 
     @model_validator(mode="after")
     def headroom(self) -> Self:
@@ -116,10 +126,14 @@ class ResponseCapture:
         input_items: tuple[dict[str, JsonValue], ...],
         *,
         profile_revision: str | None = None,
+        allow_empty_terminal: bool = False,
     ) -> None:
         """Bind one admitted provider input; no raw item is accepted from discovery."""
         self.input_items = input_items
         self.profile_revision = profile_revision
+        if allow_empty_terminal and profile_revision is None:
+            raise ValueError("empty terminal requires an explicit qualified profile")
+        self.allow_empty_terminal = allow_empty_terminal
         self.added: dict[int, dict[str, JsonValue]] = {}
         self.done: dict[int, dict[str, JsonValue]] = {}
         self.completed = False
@@ -165,10 +179,17 @@ class ResponseCapture:
             ):
                 raise ValueError("incomplete canonical output")
             output = response.get("output")
-            if not isinstance(output, list) or [_item(value) for value in output] != [
-                self.done[index] for index in sorted(self.done)
-            ]:
+            if not isinstance(output, list):
                 raise ValueError("terminal/stream output mismatch")
+            if output or not self.allow_empty_terminal:
+                if [_item(value) for value in output] != [
+                    self.done[index] for index in sorted(self.done)
+                ]:
+                    raise ValueError("terminal/stream output mismatch")
+            # The qualified plan route emits an empty terminal snapshot while
+            # complete output_item.done events carry its canonical items. This
+            # explicit profile exception never accepts a partial, duplicated or
+            # reordered nonempty snapshot, or missing/incomplete streamed items.
             self.completed = True
 
     def validate_message(self, assistant: dict[str, JsonValue]) -> None:

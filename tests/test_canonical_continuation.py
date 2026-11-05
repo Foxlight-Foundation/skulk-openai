@@ -211,11 +211,16 @@ async def test_compaction_is_private_and_only_new_input_follows_latest_checkpoin
 @pytest.mark.parametrize(
     "failure", ["eof", "trailing", "incomplete", "usage", "missing_done"]
 )
+@pytest.mark.parametrize("empty_snapshot", [False, True])
 async def test_invalid_or_failed_stream_never_commits_receipt(
-    tmp_path: Path, failure: str
+    tmp_path: Path, failure: str, empty_snapshot: bool
 ) -> None:
     def build(_number: int) -> list[dict[str, JsonValue]]:
         events = output_events(compacted_output())
+        if empty_snapshot:
+            response = events[-1]["response"]
+            assert isinstance(response, dict)
+            response["output"] = []
         if failure == "eof":
             return events[:-1]
         if failure == "trailing":
@@ -240,9 +245,14 @@ async def test_invalid_or_failed_stream_never_commits_receipt(
 
     api = ResponseAPI(build)
     store, credential, provider = await integrated(tmp_path, api)
+    profile = (
+        _PROFILE.model_copy(update={"terminal_output": "empty_snapshot"})
+        if empty_snapshot
+        else _PROFILE
+    )
     with store.worker() as worker:
         events = await collect(
-            ContinuationService(worker, provider, profile=_PROFILE),
+            ContinuationService(worker, provider, profile=profile),
             store,
             credential,
             [USER],
@@ -293,8 +303,9 @@ async def test_unsolicited_compaction_is_refused_when_disabled(tmp_path: Path) -
 @pytest.mark.parametrize(
     "change", ["missing", "empty", "omitted", "duplicated", "reordered"]
 )
+@pytest.mark.parametrize("empty_snapshot", [False, True])
 async def test_terminal_output_must_equal_complete_ordered_capture(
-    tmp_path: Path, change: str
+    tmp_path: Path, change: str, empty_snapshot: bool
 ) -> None:
     def build(_: int) -> list[dict[str, JsonValue]]:
         events = output_events(compacted_output())
@@ -318,17 +329,25 @@ async def test_terminal_output_must_equal_complete_ordered_capture(
 
     api = ResponseAPI(build)
     store, credential, provider = await integrated(tmp_path, api)
+    profile = (
+        _PROFILE.model_copy(update={"terminal_output": "empty_snapshot"})
+        if empty_snapshot
+        else _PROFILE
+    )
     with store.worker() as worker:
         events = await collect(
-            ContinuationService(worker, provider, profile=_PROFILE),
+            ContinuationService(worker, provider, profile=profile),
             store,
             credential,
             [USER],
         )
+        assert not worker.leases
+    if change == "empty" and empty_snapshot:
+        assert events[-1].event.kind == "completed" and events[-1].receipt is not None
+    else:
         assert events[-1].event.kind == "failed"
         assert events[-1].event.error == "invalid_stream"
-        assert not worker.leases
-    assert all(event.receipt is None for event in events)
+        assert all(event.receipt is None for event in events)
 
 
 @pytest.mark.parametrize("mismatch", ["text", "tool_arguments", "item_identity"])

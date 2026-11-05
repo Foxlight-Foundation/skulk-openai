@@ -20,7 +20,13 @@ durable before provider I/O. Only a successful terminal event followed by clean
 EOF can atomically publish a new canonical window and its content-free receipt.
 
 Ordered output-item added/done pairs must agree in identity and kind; terminal
-output must agree with the staged stream. Canonical assistant text and function
+output must agree with the complete ordered staged stream. A trusted, explicitly
+qualified profile can select `terminal_output: empty_snapshot` for the plan
+connection observed returning `output: []` after complete streamed items. This
+accepts only an empty terminal array or a complete matching array; missing,
+partial, duplicated or reordered snapshots remain invalid. The profile revision
+binds this behavior to the checkpoint; it is never inferred from upstream output.
+Canonical assistant text and function
 calls must also match the public deltas used in the history fingerprint. Only
 the supplied functions and permitted parallel-call behavior may be forwarded;
 the capability does not execute tools. Reasoning summaries remain public summary

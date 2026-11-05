@@ -122,7 +122,14 @@ class ContinuationService:
             # Apply the same custody bound before provider submission. Public
             # history may be much larger than a compacted working window.
             CanonicalWindow(items=items, profile_revision=revision).encode()
-            capture = ResponseCapture(items, profile_revision=revision)
+            capture = ResponseCapture(
+                items,
+                profile_revision=revision,
+                allow_empty_terminal=(
+                    self.profile is not None
+                    and self.profile.terminal_output == "empty_snapshot"
+                ),
+            )
             upstream: dict[str, object] = {
                 **body,
                 "input": list(items),
