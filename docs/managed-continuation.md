@@ -1,6 +1,6 @@
 # Managed continuation contract
 
-The initiative source adds the author-defined
+Integrator 0.5.0 provides the author-defined
 `openai.inference.continuation@0.1.0` callable using public SDK protocol 4.
 The synthetic bundle uses `mock-openai.guarded.continuation@0.1.0` instead.
 
@@ -12,8 +12,8 @@ field is present, it must exactly equal the advertised public
 `capability/<chat-callable>/<model-slug>` address; only that field is removed for
 Responses translation. Unwrapped SDK bodies remain supported. Unknown fields,
 different model addresses and duplicate JSON keys refuse before provider egress.
-This is not a signed installed release or an enabled unified HTTP API feature.
-Existing full-history chat contracts retain their behavior.
+Unified HTTP/Chat use requires a compatible Skulk build advertising the exact
+continuation destination. Existing full-history chat retains its behavior.
 
 One bidirectional descriptor accepts two strict signed operation types:
 
@@ -55,8 +55,9 @@ permit the model and external processing. Only trusted owner code can currently
 register/revoke the individual caller key through `CheckpointStore` or its
 [owner-authenticated management endpoints](client-enrollment.md); the managed
 inference callable never mints a grant. The account-free client CLI keeps private
-material on the client. Management enrollment UI and retention controls remain
-separate. No account token, caller private key,
+material on the client. The management page approves public keys, chooses model
+scope/expiry, exports public enrollment and revokes clients. Retention/storage
+limits are explicit node configuration. No account token, caller private key,
 provider URL or private window belongs in startup settings or a descriptor.
 
 `profiles` contains independently established `CompactionProfile` records, at

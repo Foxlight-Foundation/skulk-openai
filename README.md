@@ -95,22 +95,27 @@ inline images. Paired-client inference authority and
 distributed/declarative/algorithmic routing retain their own acceptance gates.
 The shared reference contract is not an adopted SDK standard.
 
-The initiative also includes an account-free
-[continuation reference](docs/continuation-reference.md), with explicit caller
-and conversation scope, exact-history checks, destination/account/policy binding,
-one-use attempts and interruption recovery. Its pure state transitions and two
-unrelated provider fixtures do not enable continuation or compaction in the
-installed integration.
+Integrator 0.5.0 adds opt-in [managed continuation](docs/managed-continuation.md)
+with client-owned signing keys, owner approval/revocation, encrypted transactional
+checkpoints and content-free receipt recovery. Explicit storage configuration is
+required; omitted configuration creates no checkpoint worker or key. Existing
+full-history clients retain their behavior. The capability independently checks
+caller, conversation, exact history, destination, account and policy before egress.
 
-The initiative's [checkpoint custody layer](docs/checkpoint-custody.md) adds
-distinct owner-issued caller keys, encrypted transactional state and actual
-process-crash tests. Client enrollment and continuation are not yet advertised
-through the installed SDK or unified API.
+**Skulk access → Continuation clients** approves public keys and exports public
+enrollment. Private keys remain with each client. A compatible Skulk build that
+advertises `inference_capability.continuation` exposes the same opt-in through
+its unified API and Chat. Do not send a continuation proof to a gateway that
+has not advertised this contract. See [client enrollment](docs/client-enrollment.md).
 
-The initiative branch also contains an experimental
-[streamed request-body contract](docs/streamed-input.md) and text/PDF input
-translation. Integrator 0.4.5 and the generic gateway support this media contract
-alongside the 0.1 path. That delivery does not imply continuation support.
+Automatic compaction remains disabled without a separately qualified model
+profile. Protected continuity and smaller stored windows do not establish fewer
+effective context tokens or increased context headroom.
+
+The [streamed request-body contract](docs/streamed-input.md) also supports bounded
+inline text/PDF inputs alongside the legacy 0.1 contract. The original
+[account-free continuation reference](docs/continuation-reference.md) and
+[checkpoint custody tests](docs/checkpoint-custody.md) remain available for learning.
 
 Live requests require owner consent and capability-owned authority. The API
 supports direct local-owner use; model discovery does not grant permission to
@@ -118,7 +123,7 @@ arbitrary LAN or paired clients. Hosted availability and usage follow the
 connected account and its app settings. Included-only routing remains unavailable
 until usage can be verified; no free-usage guarantee is made.
 
-This reference is Apache-2.0 licensed. The authoring SDK 0.5.3 uses MIT; the SDK
+This reference is Apache-2.0 licensed. The authoring SDK 0.5.5 uses MIT; the SDK
 owner runtime is separately licensed and its implementation is not vendored here.
 OpenAI is a separate service. This repository is not an OpenAI product or an
 endorsement.

@@ -11,7 +11,7 @@ not evidence of supported public package delivery.
 Prepare these inputs outside the source checkout:
 
 - A reviewed source revision with matching project and manifest versions.
-- A compatible author SDK, owner and publisher. The continuation candidate uses
+- A compatible author SDK, owner and publisher. Integrator 0.5.0 uses
   author SDK 0.5.5 and owner 0.10.4, including early-refusal stream cleanup fixes.
   Installed Integrator 0.4.5 was qualified with SDK 0.5.3 and owner 0.10.2;
   candidate source checks do not update that installation.
@@ -69,6 +69,7 @@ capability-build --spec capability.toml \
   --sequence "$RELEASE_SEQUENCE" --expires-at "$RELEASE_EXPIRY" \
   --state-schema openai-reference-v1 \
   --permission 'Owner-controlled account connection and external inference under the connected provider account usage settings' \
+  --permission 'Keep encrypted continuation checkpoints on this device only when owner-enabled' \
   --skulk-source "$SKULK_SOURCE" --output "$INTEGRATOR_BUILD/release"
 
 capability-catalog --publisher "$PUBLISHER_ID" \
@@ -115,7 +116,7 @@ and [gateway access boundaries](gateway-chat.md).
 
 ## Central first-party publication
 
-Integrator 0.4.5 requires Skulk 2.0.3 or newer and retains owner-local gateway
+Integrator 0.5.0 requires Skulk 2.0.3 or newer and retains owner-local gateway
 access. Install the maintained publisher environment explicitly with
 `uv sync --frozen --group publisher`; use the root lock for wheelhouse generation.
 The SDK source pins in this group are immutable maintainer inputs, not a claim
@@ -155,3 +156,14 @@ Version 0.4.5 adds bounded signed media input and inline UTF-8 text/PDF
 documents, plus model/policy-aware document metadata on the v2 catalog. The v1
 contract remains compatible. Account state, permission declarations and the
 state schema are unchanged; no additional document permission switch is added.
+
+Version 0.5.0 adds independently approved client keys, exact-body managed
+continuation, encrypted checkpoint custody, receipt lookup and public-key
+management controls. The first seven descriptors and their v1/v2 catalog shapes
+remain unchanged. New HTTP/Chat use requires explicit continuation metadata from
+the gateway; version compatibility alone does not establish that adapter's
+availability. The signed permission summary discloses opt-in local checkpoint
+storage. Normal updates retain the connected account and integration settings;
+checkpoint storage remains off unless explicitly configured. Automatic compaction
+has a separate model/context qualification requirement and stays off without a
+profile. Do not infer token savings from smaller encrypted records.
