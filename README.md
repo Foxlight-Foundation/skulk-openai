@@ -91,15 +91,21 @@ and HTTP cleanup. See [caller grants](docs/caller-grants.md),
 
 The original finite text contract remains available. The gateway chat reference
 also supports function calls, explicit history, structured output and bounded
-inline images. Large-media transfer, paired-client inference authority and
+inline images. Paired-client inference authority and
 distributed/declarative/algorithmic routing retain their own acceptance gates.
 The shared reference contract is not an adopted SDK standard.
 
+The initiative also includes an account-free
+[continuation reference](docs/continuation-reference.md), with explicit caller
+and conversation scope, exact-history checks, destination/account/policy binding,
+one-use attempts and interruption recovery. Its pure state transitions and two
+unrelated provider fixtures do not enable continuation or compaction in the
+installed integration.
+
 The initiative branch also contains an experimental
 [streamed request-body contract](docs/streamed-input.md) and text/PDF input
-translation. These are capability-side source work; the current signed release
-and unified API still use the 0.1 chat contract. Promotion requires generic
-gateway support and installed end-to-end qualification.
+translation. Integrator 0.4.5 and the generic gateway support this media contract
+alongside the 0.1 path. That delivery does not imply continuation support.
 
 Live requests require owner consent and capability-owned authority. The API
 supports direct local-owner use; model discovery does not grant permission to
