@@ -75,6 +75,11 @@ it must not be mistaken for managed-owner or installed-runtime qualification.
 Public SDK source/package acquisition and clean independent-author reproduction
 remain separate work from this first-party signed runtime delivery.
 
+The optional [model qualification tool](docs/model-qualification.md) plans from
+the installed unified catalog and requires explicit execution for synthetic
+account-backed stream/media/tool/schema probes. Its content-free receipts keep
+serving results separate from model-answer observations and compaction claims.
+
 Maintainers should follow the [release recipe](docs/releasing.md), including
 immutable source/dependency identities, three-platform and independent rebuild
 checks, protected signing, store publication and normal installation readback.
