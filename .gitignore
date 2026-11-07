@@ -11,3 +11,7 @@ dist/
 .DS_Store
 .runtime/
 openai-account/
+
+# Local public author inputs/environments
+.author-venv/
+manifest.json

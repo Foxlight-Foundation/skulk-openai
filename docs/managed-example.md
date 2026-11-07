@@ -1,25 +1,28 @@
 # Exercise the public SDK interface
 
-`examples/managed_child.py` is a credential-free child using only the capability
-SDK's public `contracts`, `storage`, `wire` and `streams` modules. The SDK is a
-separate licensed dependency; its implementation is not vendored here. Obtain a
-compatible SDK through the supported distribution/access process. This slice
-was originally exercised with author SDK 0.5.0, protocol 4. The managed account
-capability and its publishing factory require author SDK 0.5.1 or newer; the
-explicit suite also passes with that candidate.
+`examples/managed_child.py` is a credential-free child using only the MIT
+capability SDK's public contracts, storage, wire and streams modules. Its
+implementation is not vendored here. Public package downloads require no
+account or private Git access.
 
-In this repository's isolated development environment, install the licensed SDK
-package you obtained, then explicitly run:
+In this repository's isolated environment:
 
 ```sh
-uv run basedpyright src/skulk_openai/managed.py examples tests_managed
-uv run pytest tests_managed
+uv sync --frozen --group managed
+uv run --no-sync basedpyright src/skulk_openai/managed.py examples tests_managed
+uv run --no-sync pytest tests_managed
 ```
 
-These commands require SDK access and fail when it is absent. The ordinary core
-suite does not silently skip managed tests or claim to have run them. Core CI
-has no SDK distribution credentials and only runs the core suite. SDK package
-availability and reproducible acquisition remain delivery prerequisites.
+The hash-pinned public SDK 0.5.5 wheel matches the currently qualified owner
+0.10.5 runtime. CI also replaces only that SDK with the public author release
+0.5.7 and repeats the managed checks. Their eleven runtime modules have identical
+bytes; the distribution versions and package identities remain distinct.
+Core and managed process jobs remain separate, and neither claims installed
+qualification. No SDK test is silently skipped when a dependency is absent.
+
+For unsigned builds, signing and your own feed, see the
+[public author workflow](public-authoring.md). It installs tools 0.1.0 and
+SDK 0.5.7 in a separate environment using public, hash-locked binary packages.
 
 The explicit tests provision short-lived Unix sockets and an inherited startup
 file descriptor, authenticate the child's hello/manifest, and exchange real SDK

@@ -404,8 +404,10 @@ async def wait_for_phase(store: CheckpointStore, phase: str) -> None:
             await asyncio.sleep(0.01)
 
 
+@pytest.mark.parametrize("disconnected_half_close", [False, True])
 async def test_lost_receipt_is_recovered_without_resubmitting_generation(
     tmp_path: Path,
+    disconnected_half_close: bool,
 ) -> None:
     store, credential = await enrolled(tmp_path)
     proof, raw = signed(store, credential, [USER])
@@ -414,6 +416,9 @@ async def test_lost_receipt_is_recovered_without_resubmitting_generation(
         guarded=True,
         state_directory=store.credentials.root,
         continuation=_CONFIG,
+        entrypoint=Path(__file__).with_name("disconnected_half_close_fixture.py")
+        if disconnected_half_close
+        else None,
     ) as child:
         reader, writer = await open_call(child, proof, raw)
         packet = await asyncio.wait_for(read_packet(reader), 3)
@@ -439,6 +444,8 @@ async def test_lost_receipt_is_recovered_without_resubmitting_generation(
         assert replay.error is not None and replay.receipt is None
         assert (await unary(child, 2))["requests_started"] == 1
         await health(child)
+        if disconnected_half_close:
+            assert (store.credentials.root / "eof-probe").read_text() == "ENOTCONN"
 
 
 async def test_media_cancellation_retires_dispatched_attempt_and_preserves_health(

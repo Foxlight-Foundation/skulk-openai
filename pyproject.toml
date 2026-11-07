@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "skulk-openai"
-version = "0.5.1"
+version = "0.5.2"
 description = "Experimental managed inference capability learning reference"
 requires-python = ">=3.13"
 license = "Apache-2.0"
@@ -27,6 +27,7 @@ skulk-openai-continuation = "skulk_openai.continuation_client:main"
 [dependency-groups]
 # Core's pinned source reader imports these only during release verification;
 # they are not additional roots in the capability's signed runtime.
+managed = ["skulk-capability-sdk==0.5.5"]
 publisher = [
     "skulk-capability-nodes==0.10.5",
     "skulk-capability-sdk==0.5.5",
@@ -70,5 +71,6 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 default-groups = ["dev"]
 
 [tool.uv.sources]
-skulk-capability-nodes = { git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes", rev = "b256980b0311aaa145694130d714bb8c991de20b" }
-skulk-capability-sdk = { git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes", rev = "b256980b0311aaa145694130d714bb8c991de20b", subdirectory = "sdk-public" }
+# Immutable public binaries; neither contributor nor managed CI needs private Git.
+skulk-capability-nodes = { url = "https://skulkapps.foxlight.ai/releases/reference.openai/42378358083/macos-arm64/skulk_capability_nodes-0.10.5-py3-none-any.whl" }
+skulk-capability-sdk = { url = "https://skulkapps.foxlight.ai/releases/reference.openai/42378358083/macos-arm64/skulk_capability_sdk-0.5.5-py3-none-any.whl" }

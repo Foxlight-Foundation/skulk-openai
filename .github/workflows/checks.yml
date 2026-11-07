@@ -27,5 +27,53 @@ jobs:
       - run: node --test tests_web/*.test.cjs
       - run: uv run skulk-openai-demo
       - run: uv build
-      # SDK examples are tested explicitly with licensed SDK access. These jobs
-      # intentionally claim only core checks, not managed/installed qualification.
+      # Core checks remain distinct from the SDK process and installed runtime gates.
+  managed:
+    name: Public SDK process (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.12.23"
+      - run: uv sync --frozen --group managed
+      - run: uv run --no-sync basedpyright src/skulk_openai/managed.py examples tests_managed
+      - run: uv run --no-sync pytest tests_managed
+      - name: Check the public author SDK against the same process suite
+        run: |
+          set -euo pipefail
+          uv pip install --python .venv/bin/python --no-deps --require-hashes -r authoring/sdk-only.txt
+          uv run --no-sync basedpyright src/skulk_openai/managed.py examples tests_managed
+          uv run --no-sync pytest tests_managed
+  author:
+    name: Public author build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.12.23"
+          python-version: "3.13"
+      - run: uv venv .author-venv --python 3.13
+      - run: 'uv pip install --python .author-venv/bin/python --require-hashes --only-binary :all: -r authoring/requirements.txt'
+      - name: Build the isolated mock reference with public tools only
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src .author-venv/bin/python - <<'PY'
+          from pathlib import Path
+          from skulk_openai.managed import build_manifest, validate_manifest
+          manifest = build_manifest(executable="bundle.pyz", executable_sha256="0" * 64, mock=True)
+          validate_manifest(manifest)
+          Path("manifest.json").write_text(manifest.model_dump_json())
+          PY
+          .author-venv/bin/skulk-cap build --project . --output "$RUNNER_TEMP/openai-mock-build"
