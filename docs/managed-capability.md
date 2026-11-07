@@ -103,8 +103,8 @@ outside this public reference.
 
 `capability.toml` declares `PyJWT>=2.10,<3` and the project-local
 `skulk_inference_reference` source package alongside the entrypoint, setup shim,
-validator and license. The pinned toolchain is author SDK 0.5.5 with owner
-0.10.4. It adds declared capability roots to the complete signed wheel closure;
+validator and license. The 0.5.1 toolchain is author SDK 0.5.5 with owner
+0.10.5. It adds declared capability roots to the complete signed wheel closure;
 it does not require an OpenAI-specific publisher or Skulk integration.
 
 `skulk_openai.managed:build_manifest` is the public publishing factory. For
