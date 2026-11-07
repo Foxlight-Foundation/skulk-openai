@@ -65,7 +65,7 @@ jobs:
           version: "0.12.23"
           python-version: "3.13"
       - run: uv venv .author-venv --python 3.13
-      - run: uv pip install --python .author-venv/bin/python --require-hashes --only-binary :all: -r authoring/requirements.txt
+      - run: 'uv pip install --python .author-venv/bin/python --require-hashes --only-binary :all: -r authoring/requirements.txt'
       - name: Build the isolated mock reference with public tools only
         run: |
           set -euo pipefail
