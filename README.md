@@ -107,6 +107,13 @@ required; omitted configuration creates no checkpoint worker or key. Existing
 full-history clients retain their behavior. The capability independently checks
 caller, conversation, exact history, destination, account and policy before egress.
 
+Version 0.5.1 updates the qualified owner to 0.10.5 and raises the runtime
+dependency floors to cryptography 50.0.2 and AnyIO 4.14.2. Its lock selects
+cryptography 50.0.2 and AnyIO 4.16.0. The checkpoint format and client signing
+contract are unchanged; frozen pre-upgrade ciphertext/signature fixtures cover
+compatibility. Source checks remain separate from signed installed upgrade and
+rollback qualification.
+
 **Skulk access → Continuation clients** approves public keys and exports public
 enrollment. Private keys remain with each client. A compatible Skulk build that
 advertises `inference_capability.continuation` exposes the same opt-in through

@@ -11,8 +11,10 @@ not evidence of supported public package delivery.
 Prepare these inputs outside the source checkout:
 
 - A reviewed source revision with matching project and manifest versions.
-- A compatible author SDK, owner and publisher. Integrator 0.5.0 uses
-  author SDK 0.5.5 and owner 0.10.4, including early-refusal stream cleanup fixes.
+- A compatible author SDK, owner and publisher. Integrator 0.5.1 uses
+  author SDK 0.5.5 and owner 0.10.5, with cryptography 50.0.2 and AnyIO 4.16.0
+  in its qualified lock. Publisher-only aiohttp is 3.14.5. The preceding
+  Integrator 0.5.0 used owner 0.10.4, including early-refusal stream cleanup fixes.
   Installed Integrator 0.4.5 was qualified with SDK 0.5.3 and owner 0.10.2;
   candidate source checks do not update that installation.
 - The publisher's lock and complete wheelhouse, including the owner
