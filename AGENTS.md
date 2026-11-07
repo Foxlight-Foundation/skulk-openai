@@ -2,7 +2,7 @@
 
 This public repository is a learning reference. Keep private platform source,
 strategy, credentials, account information and environment details out of it.
-The separately licensed capability SDK must be consumed through its public
+The MIT capability SDK must be consumed through its public
 interfaces; never vendor its implementation or import private owner modules.
 
 Experimental implementation lives on `initiative/openai-provider`. Branch each
@@ -27,12 +27,13 @@ Before every implementation commit run:
     git diff --check
     git diff --cached --check
 
-Managed SDK tests are a separate explicit suite. Missing SDK access must be
-reported as a gate, never silently treated as a passing managed test. Also run
+Managed SDK tests are a separate explicit suite. Install the anonymous public
+packages with `uv sync --frozen --group managed`; missing dependencies must fail
+explicitly, never silently count as a passing managed test. Also run
 `uv run basedpyright src/skulk_openai/managed.py examples tests_managed` and
 `uv run pytest tests_managed`
-when the licensed SDK is available; core CI covers only `src` and `tests`. Install
-licensed packages only in this repository's isolated environment.
+in the managed environment; CI has separate core, public-SDK process and author
+build jobs. Keep author tools and owner runtime in separate isolated environments.
 Core type checks exclude the SDK-dependent managed entrypoint; the explicit SDK
 check above includes it. Never describe the core job alone as managed validation.
 

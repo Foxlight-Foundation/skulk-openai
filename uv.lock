@@ -1450,7 +1450,7 @@ wheels = [
 [[package]]
 name = "skulk-capability-nodes"
 version = "0.10.5"
-source = { git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes?rev=b256980b0311aaa145694130d714bb8c991de20b#b256980b0311aaa145694130d714bb8c991de20b" }
+source = { url = "https://skulkapps.foxlight.ai/releases/reference.openai/42378358083/macos-arm64/skulk_capability_nodes-0.10.5-py3-none-any.whl" }
 dependencies = [
     { name = "anyio" },
     { name = "cryptography" },
@@ -1462,20 +1462,51 @@ dependencies = [
     { name = "referencing" },
     { name = "skulk-capability-sdk" },
 ]
+wheels = [
+    { url = "https://skulkapps.foxlight.ai/releases/reference.openai/42378358083/macos-arm64/skulk_capability_nodes-0.10.5-py3-none-any.whl", hash = "sha256:9559485eff0b44343d7b2cdd2c2cf5eaf836a7be5bb54a0f9d9747916c61ae3a" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anyio", specifier = ">=4.14.2,<5" },
+    { name = "cryptography", specifier = ">=50.0.2,<51" },
+    { name = "httpx", specifier = ">=0.28.1,<1" },
+    { name = "jsonschema", specifier = ">=4.26,<5" },
+    { name = "keyring", specifier = ">=25,<26" },
+    { name = "packaging", specifier = ">=24" },
+    { name = "pydantic", specifier = ">=2.12,<3" },
+    { name = "referencing", specifier = ">=0.36" },
+    { name = "securesystemslib", marker = "extra == 'store'", specifier = "==1.4.0" },
+    { name = "skulk-capability-sdk", specifier = ">=0.5.5,<0.6" },
+    { name = "tuf", marker = "extra == 'store'", specifier = "==6.0.0" },
+]
+provides-extras = ["store"]
 
 [[package]]
 name = "skulk-capability-sdk"
 version = "0.5.5"
-source = { git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes?subdirectory=sdk-public&rev=b256980b0311aaa145694130d714bb8c991de20b#b256980b0311aaa145694130d714bb8c991de20b" }
+source = { url = "https://skulkapps.foxlight.ai/releases/reference.openai/42378358083/macos-arm64/skulk_capability_sdk-0.5.5-py3-none-any.whl" }
 dependencies = [
     { name = "jsonschema" },
     { name = "packaging" },
     { name = "pydantic" },
 ]
+wheels = [
+    { url = "https://skulkapps.foxlight.ai/releases/reference.openai/42378358083/macos-arm64/skulk_capability_sdk-0.5.5-py3-none-any.whl", hash = "sha256:8a65486a50dd58bef87e47f00c5aa05b8c327940ba6f8ead26b67da8658ae1ce" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jsonschema", specifier = ">=4.26,<5" },
+    { name = "keyring", marker = "extra == 'native-credentials'", specifier = ">=25,<26" },
+    { name = "packaging", specifier = ">=24" },
+    { name = "pydantic", specifier = ">=2.12,<3" },
+]
+provides-extras = ["native-credentials"]
 
 [[package]]
 name = "skulk-openai"
-version = "0.5.1"
+version = "0.5.2"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },
@@ -1493,6 +1524,9 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
+]
+managed = [
+    { name = "skulk-capability-sdk" },
 ]
 publisher = [
     { name = "aiofiles" },
@@ -1528,6 +1562,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=1.2,<2" },
     { name = "ruff", specifier = ">=0.13,<1" },
 ]
+managed = [{ name = "skulk-capability-sdk", url = "https://skulkapps.foxlight.ai/releases/reference.openai/42378358083/macos-arm64/skulk_capability_sdk-0.5.5-py3-none-any.whl" }]
 publisher = [
     { name = "aiofiles", specifier = "==25.1.0" },
     { name = "aiohttp", specifier = "==3.14.5" },
@@ -1538,8 +1573,8 @@ publisher = [
     { name = "psutil", specifier = ">=7.2.2" },
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "rustworkx", specifier = "==0.17.1" },
-    { name = "skulk-capability-nodes", git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes?rev=b256980b0311aaa145694130d714bb8c991de20b" },
-    { name = "skulk-capability-sdk", git = "https://github.com/Foxlight-Foundation/skulk-capability-nodes?subdirectory=sdk-public&rev=b256980b0311aaa145694130d714bb8c991de20b" },
+    { name = "skulk-capability-nodes", url = "https://skulkapps.foxlight.ai/releases/reference.openai/42378358083/macos-arm64/skulk_capability_nodes-0.10.5-py3-none-any.whl" },
+    { name = "skulk-capability-sdk", url = "https://skulkapps.foxlight.ai/releases/reference.openai/42378358083/macos-arm64/skulk_capability_sdk-0.5.5-py3-none-any.whl" },
     { name = "tomlkit", specifier = "==0.14.0" },
     { name = "tuf", specifier = "==6.0.0" },
 ]

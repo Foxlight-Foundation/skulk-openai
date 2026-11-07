@@ -122,7 +122,7 @@ The SDK child process is not an adversarial sandbox.
 Credential-free tests use generated identities, actual loopback sockets and
 explicit mock upstream transports. They exercise session/Origin/CSRF refusal,
 strict HTTP bounds, fresh and stale selection, policy denials, bounded signed
-admission, cancellation, disconnect and shutdown. Explicit licensed-SDK process
+admission, cancellation, disconnect and shutdown. Explicit public-SDK process
 tests verify the manifest/health surface, management while inference is disabled,
 and listener withdrawal. Source, wheel, signed runtime, installed host and live
 provider evidence remain distinct.

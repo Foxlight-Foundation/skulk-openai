@@ -74,12 +74,13 @@ The immutable test identity `reference.openai.mock` has distinct
 directory, uses a finite mock Responses transport, and never runs the live
 metadata worker. It cannot advertise the live profile's callable IDs.
 
-Core CI has no separately licensed SDK and excludes this entrypoint from its
-type check. With SDK access, run the additional checks:
+Core CI excludes this entrypoint from its type check. A separate public-SDK
+process job installs the hash-pinned managed group and runs these checks:
 
 ```sh
-uv run basedpyright src/skulk_openai/managed.py examples tests_managed
-uv run pytest tests_managed
+uv sync --frozen --group managed
+uv run --no-sync basedpyright src/skulk_openai/managed.py examples tests_managed
+uv run --no-sync pytest tests_managed
 ```
 
 The SDK process tests cover the legacy fixture/mock examples and the guarded
@@ -145,8 +146,8 @@ through the normal Core verifier/selector and a signed isolated mock runtime.
 The earlier live-account evidence does not qualify this candidate for a normal
 installed update or effective compaction.
 
-Obtain SDK packages through their supported licensed distribution/access process.
-Public toolchain distribution, clean-author reproduction, installed setup,
+Obtain the MIT SDK and author tools through the anonymous, hash-pinned
+[public author workflow](public-authoring.md). Clean-author reproduction, installed setup,
 upgrade/rollback and cross-node qualification remain separate delivery checks.
 Do not hide dependencies in a host launcher, vendor private SDK source or bypass
 inventory verification.
