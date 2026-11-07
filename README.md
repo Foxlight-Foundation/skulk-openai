@@ -70,10 +70,10 @@ for these HTTP mocks, and no provider token is read.
 
 The [managed account child](docs/managed-capability.md) consumes public SDK
 interfaces. The [SDK exercise](docs/managed-example.md) describes the explicit
-managed tests. Credential-free core CI runs independently of that environment;
-it must not be mistaken for managed-owner or installed-runtime qualification.
-Public SDK source/package acquisition and clean independent-author reproduction
-remain separate work from this first-party signed runtime delivery.
+managed tests. Credential-free CI runs separate core, managed-process and public-author build
+jobs. The [public author workflow](docs/public-authoring.md) uses anonymous,
+hash-pinned SDK/tools packages; private Git access is unnecessary. Process and
+unsigned-build checks remain distinct from signed installed qualification.
 
 The optional [model qualification tool](docs/model-qualification.md) plans from
 the installed unified catalog and requires explicit execution for synthetic

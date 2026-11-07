@@ -1,0 +1,4 @@
+# Public author tools run separately from the qualified owner SDK 0.5.5.
+skulk-capability-sdk @ https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.7/skulk_capability_sdk-0.5.7-py3-none-any.whl
+skulk-capability-tools @ https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.7/skulk_capability_tools-0.1.0-py3-none-any.whl
+PyJWT[crypto]==2.15.1

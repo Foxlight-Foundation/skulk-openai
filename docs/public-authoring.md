@@ -1,0 +1,110 @@
+# Build the Integrator with public author tools
+
+The MIT Python SDK and author tools are available as immutable anonymous
+packages. No GitHub account, SDK account, private repository, provider account,
+model, GPU or fleet lease is needed for the steps below. This repository remains
+Apache-2.0; the separately licensed owner runtime stays outside its source bundle.
+
+The root `uv.lock` records public binary URLs and hashes for the currently
+qualified runtime, owner 0.10.5 and SDK 0.5.5. The author environment below uses
+public SDK 0.5.7 and tools 0.1.0. Their eleven SDK runtime modules are identical;
+these are still distinct package versions. The SDK/owner wheel files are
+universal Python wheels even though their immutable origin directory is named
+for the publishing runner; native dependencies are selected for the target
+platform by the lock. Supported release targets remain macOS arm64 and glibc
+Linux x86_64/aarch64. Tools and the qualified owner belong
+in separate environments because their SDK version requirements differ.
+
+## Install and check the reference
+
+From this source checkout, using Python 3.13 and uv:
+
+```sh
+uv sync --frozen --group managed
+uv run --no-sync basedpyright
+uv run --no-sync pytest
+uv run --no-sync basedpyright src/skulk_openai/managed.py examples tests_managed
+uv run --no-sync pytest tests_managed
+node --test tests_web/*.test.cjs
+
+uv venv .author-venv --python 3.13
+uv pip install --python .author-venv/bin/python --require-hashes \
+  --only-binary :all: -r authoring/requirements.txt
+.author-venv/bin/skulk-cap --version
+```
+
+`authoring/requirements.txt` pins the complete portable author dependency set,
+including the two public release wheels. `authoring/sdk-only.txt` selects the
+new SDK for the separate compatibility check in CI. Neither installs the owner
+or imports private owner modules. To refresh the author dependency lock deliberately:
+
+```sh
+uv pip compile authoring/requirements.in --python-version 3.13 --universal \
+  --generate-hashes --no-strip-extras --output-file authoring/requirements.txt
+```
+
+Core, managed process and author build jobs run independently on macOS and Linux.
+Process checks use synthetic identities and finite mock upstream responses. They
+cannot establish signed installed behavior or real provider access.
+
+## Build an account-free candidate
+
+Set `INTEGRATOR_BUILD` to a new absolute directory outside the checkout. Keep it
+private. Generate the distinct mock identity and build its source archive:
+
+```sh
+umask 077
+mkdir "$INTEGRATOR_BUILD"
+PYTHONPATH=src .author-venv/bin/python - <<'PY'
+from pathlib import Path
+from skulk_openai.managed import build_manifest, validate_manifest
+
+manifest = build_manifest(
+    executable="bundle.pyz", executable_sha256="0" * 64, mock=True
+)
+validate_manifest(manifest)
+Path("manifest.json").write_text(manifest.model_dump_json())
+PY
+.author-venv/bin/skulk-cap build --project . \
+  --output "$INTEGRATOR_BUILD/unsigned"
+.author-venv/bin/skulk-cap wheelhouse --spec capability.toml --lock uv.lock \
+  --output "$INTEGRATOR_BUILD/wheelhouse"
+```
+
+The builder validates the manifest, deterministic source archive and import
+closure. Wheelhouse acquisition verifies every selected wheel hash and requires
+binary compatibility with the current platform. The root lock has no Git sources;
+this path builds neither Core nor the owner from source. Repeat on each target
+platform before making a corresponding qualification claim.
+
+The generated `manifest.json` is a local build input, not account state or a
+signed release. Remove it after the build. For a real release, omit `mock=True`
+only after reviewing the live contract and following the separate account and
+installed qualification requirements. Merely importing the factory or building
+the archive does not connect an account.
+
+## Sign, publish and install
+
+The public tools provide `skulk-cap keygen`, `sign`, `catalog`, `inspect`,
+`publish` and journaled host lifecycle commands. Use `--help` for each command;
+see the [SDK author guide](https://github.com/Foxlight-Foundation/skulk-capability-sdk/blob/main/docs/python-authoring.md)
+and this reference's [release inputs and commands](releasing.md). Use the
+`.author-venv/bin/skulk-cap` commands `sign`, `catalog` and `wheelhouse` in place
+of the older `capability-build`, `capability-catalog` and `capability-wheelhouse`
+entry points. Declare a new publisher identity and keep its private key outside
+all release/feed inputs. Public package access grants no host or publisher trust.
+
+The mock has a distinct bundle and callable IDs. Before enabling it on an
+isolated author host, set its `state_directory` configuration to a new absolute
+directory dedicated to that installation. It deliberately refuses a missing
+explicit mock state directory. Never point it at an existing account store or
+install it on a shared production fleet. Source `run/watch` in tools 0.1.0 is a
+unary harness without configuration injection; use the explicit managed process
+suite for this configured streaming reference rather than launching the live
+profile with default account-state paths.
+
+Installing requires a compatible dev host, explicit publisher trust, reviewed
+permissions and normal management authority. Signed bytes, successful staging,
+child readiness, actual calls and update/rollback are separate checks. Existing
+first-party distribution uses an additional private maintainer source lock for
+its protected signing job; public contributors do not need that path.

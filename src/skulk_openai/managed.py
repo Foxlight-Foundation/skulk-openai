@@ -1,7 +1,8 @@
-"""Managed child consuming only the separately licensed public SDK interfaces."""
+"""Managed child consuming only the MIT SDK's public interfaces."""
 
 import argparse
 import asyncio
+import errno
 import json
 import sqlite3
 import sys
@@ -282,7 +283,7 @@ def build_manifest(
     """
     return Manifest(
         bundle_id="reference.openai.mock" if mock else "reference.openai",
-        bundle_version="0.5.1",
+        bundle_version="0.5.2",
         title="Skulk OpenAI Integrator",
         skulk_requires=">=2.0.3,<3",
         executable=executable,
@@ -611,6 +612,12 @@ async def _serve(
             ProtocolError,
         ):
             return
+        except OSError as error:
+            # A peer can disappear after commit but before the SDK's output
+            # half-close. Unix shutdown reports ENOTCONN as a plain OSError;
+            # that one call ending must not tear down receipt recovery/health.
+            if error.errno != errno.ENOTCONN:
+                raise
 
     async def overloaded(
         call: StreamInvoke, inputs: AsyncIterator[StreamFrame]

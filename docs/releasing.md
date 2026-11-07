@@ -2,8 +2,8 @@
 
 This is the maintainer path for the experimental managed capability. It uses
 the SDK's publisher and catalog tools; it does not publish a release or make
-the SDK available to other developers. Obtain those tools through the SDK's
-licensed acquisition process. A source checkout or a locally built wheel is
+the SDK available to other developers. Install public tools using the
+[anonymous author workflow](public-authoring.md). A source checkout or a locally built wheel is
 not evidence of supported public package delivery.
 
 ## Inputs and custody
@@ -19,8 +19,8 @@ Prepare these inputs outside the source checkout:
   candidate source checks do not update that installation.
 - The publisher's lock and complete wheelhouse, including the owner
   and MIT SDK plus this capability's declared dependencies. The root
-  `uv.lock` now includes the opt-in `publisher` group; ordinary core checks
-  use the default development group without SDK access.
+  `uv.lock` includes public binary SDK/owner URLs and hashes, with opt-in
+  `managed` and `publisher` groups. Core checks use the development group.
 - A publisher identity and protected Ed25519 private-key file. Never commit
   the key, paste it into command arguments or package it with the capability.
 - A new monotonic release sequence, expiry and permanent HTTPS feed address.
@@ -37,7 +37,7 @@ separately licensed runtime artifacts, never in this Apache-licensed archive.
 
 ## Build with the public interfaces
 
-Run from the reviewed source checkout with the licensed author tools available.
+Run from the reviewed source checkout with public author tools available.
 Set the following shell variables to absolute, operator-controlled paths or
 release values: `INTEGRATOR_BUILD`, `PUBLISHER_LOCK`, `PUBLISHER_KEY`,
 `PUBLISHER_ID`, `RELEASE_SEQUENCE`, `RELEASE_EXPIRY`, `CATALOG_REVISION`,
@@ -121,8 +121,12 @@ and [gateway access boundaries](gateway-chat.md).
 Integrator 0.5.0 requires Skulk 2.0.3 or newer and retains owner-local gateway
 access. Install the maintained publisher environment explicitly with
 `uv sync --frozen --group publisher`; use the root lock for wheelhouse generation.
-The SDK source pins in this group are immutable maintainer inputs, not a claim
-that private repository access is the public SDK acquisition experience.
+Public contributors use the root binary lock without private Git. The existing
+protected first-party signer separately uses `lock: maintainer/publisher-source.lock`,
+which retains the immutable private producer source pins required by its current
+verification workflow. That lock is a maintainer input, never a contributor
+installation requirement. Its wheelhouse rebuild remains a source build; the
+public author path uses the root lock and existing public binaries instead.
 
 The central publisher builds this public repository at a full reviewed source
 commit through its generic external-capability workflow. It qualifies the
@@ -169,3 +173,12 @@ storage. Normal updates retain the connected account and integration settings;
 checkpoint storage remains off unless explicitly configured. Automatic compaction
 has a separate model/context qualification requirement and stays off without a
 profile. Do not infer token savings from smaller encrypted records.
+
+
+Version 0.5.2 is the source candidate for anonymous public-SDK onboarding and a
+managed media-disconnect repair. If a peer disappears after durable commit,
+Unix output half-close may raise `ENOTCONN` rather than `ConnectionError`.
+That call now ends without taking down health or subsequent receipt recovery;
+unrelated OS errors still propagate. The signed runtime still uses owner
+0.10.5/SDK 0.5.5, with the same account/state schema and permission declarations.
+Source checks do not update an installed 0.5.1 release.
