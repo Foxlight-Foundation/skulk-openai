@@ -318,6 +318,11 @@ async def test_disabled_mock_withdraws_offers_and_rejects_direct_generation() ->
                 terminal.error is not None and terminal.error.message == "policy_denied"
             )
             assert isinstance(await asyncio.wait_for(read_packet(reader), 2), StreamEnd)
+            # End precedes the SDK's output half-close. Observe EOF before
+            # closing input and shutting down the primary channel, as the owner
+            # does; otherwise this test races the helper's transport cleanup.
+            assert await asyncio.wait_for(reader.read(), 2) == b""
         finally:
             writer.close()
             await writer.wait_closed()
+        await health(child)
