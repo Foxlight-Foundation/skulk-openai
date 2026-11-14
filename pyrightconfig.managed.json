@@ -1,0 +1,13 @@
+{
+  "pythonVersion": "3.13",
+  "typeCheckingMode": "strict",
+  "include": [
+    "src/skulk_openai/managed.py",
+    "src/skulk_openai/native_managed.py",
+    "src/skulk_openai/native_contracts.py",
+    "examples",
+    "tests_managed"
+  ],
+  "exclude": [],
+  "extraPaths": ["src"]
+}

@@ -1,0 +1,23 @@
+package = "skulk_openai"
+package_root = "src/skulk_openai"
+entry = "skulk_openai.native_managed"
+dependencies = ["PyJWT>=2.10,<3", "skulk-capability-sdk==0.5.10rc1", "skulk-capability-kernel==0.7.0rc4"]
+
+[[source_packages]]
+package = "skulk_inference_reference"
+package_root = "src/skulk_inference_reference"
+
+[entrypoints]
+__setup__ = "skulk_openai.setup:main"
+
+[data_files]
+LICENSE = "LICENSE"
+"skulk_openai/web/index.html" = "src/skulk_openai/web/index.html"
+"skulk_openai/web/app.css" = "src/skulk_openai/web/app.css"
+"skulk_openai/web/app.js" = "src/skulk_openai/web/app.js"
+"skulk_openai/web/clients.js" = "src/skulk_openai/web/clients.js"
+"skulk_openai/web/skulk.svg" = "src/skulk_openai/web/skulk.svg"
+"skulk_openai/web/instrument-sans.woff2" = "src/skulk_openai/web/instrument-sans.woff2"
+"skulk_openai/web/jetbrains-mono.woff2" = "src/skulk_openai/web/jetbrains-mono.woff2"
+"skulk_openai/web/NOTICE-fonts.txt" = "src/skulk_openai/web/NOTICE-fonts.txt"
+"skulk_openai/web/NOTICE-icons.txt" = "src/skulk_openai/web/NOTICE-icons.txt"

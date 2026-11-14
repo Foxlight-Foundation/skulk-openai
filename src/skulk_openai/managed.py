@@ -6,8 +6,9 @@ import errno
 import json
 import sqlite3
 import sys
-from collections.abc import AsyncGenerator, AsyncIterator
-from contextlib import ExitStack, aclosing
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
+from contextlib import ExitStack, aclosing, asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
@@ -67,6 +68,7 @@ from .oauth import OAuthClient
 from .provider import ProviderClient, ProviderFailure, refresh_cached_catalog
 from .responses import event_bytes
 from .sessions import SessionManager
+from .state_transfer import application_fence
 
 _OBJECT = TypeAdapter(dict[str, JsonValue])
 _CONTINUATION_PROOF = TypeAdapter(ContinuationProof | ReceiptProof)
@@ -374,155 +376,243 @@ async def serve(startup: Startup) -> None:
     )
     # The process fence outlives every owned SDK call, including cleanup during
     # disconnect/shutdown. Never recover a journal while another child serves it.
+    await _serve(startup, configuration)
+
+
+@dataclass(frozen=True)
+class ApplicationCall:
+    """Domain input after the selected transport has admitted its exact contract."""
+
+    call_id: str
+    capability_id: str
+    version: str
+    payload: dict[str, JsonValue]
+
+
+@dataclass(frozen=True)
+class ApplicationServices:
+    """Capability-owned behavior shared by separately admitted author transports."""
+
+    management: ManagementServer
+    read: Callable[[str], Awaitable[dict[str, JsonValue]]]
+    stream: Callable[
+        [ApplicationCall, AsyncIterator[StreamFrame]], AsyncGenerator[StreamFrame]
+    ]
+
+
+@asynccontextmanager
+async def open_application(
+    target_node: str, configuration: Configuration, *, mock: bool
+) -> AsyncGenerator[ApplicationServices]:
+    """Own provider/account/UI resources independently of the managed wire cohort.
+
+    ``target_node`` is the explicit application-level legacy proof identity. It
+    must never be inferred by shortening or relabelling a native host identity.
+    No provider state or implementation moves into the host or SDK.
+    """
     with ExitStack() as resources:
-        await _serve(startup, configuration, resources)
-
-
-async def _serve(
-    startup: Startup, configuration: Configuration, resources: ExitStack
-) -> None:
-    mock = startup.manifest.bundle_id.endswith(".mock")
-    if mock and configuration.state_directory is None:
-        raise ValueError(
-            "synthetic child requires an isolated explicit state directory"
+        if mock and configuration.state_directory is None:
+            raise ValueError(
+                "synthetic child requires an isolated explicit state directory"
+            )
+        root = (
+            default_state_directory()
+            if configuration.state_directory is None
+            else await asyncio.to_thread(Path(configuration.state_directory).expanduser)
         )
-    root = (
-        default_state_directory()
-        if configuration.state_directory is None
-        else await asyncio.to_thread(Path(configuration.state_directory).expanduser)
-    )
-    if not root.is_absolute():
-        raise ValueError("managed account storage must be an absolute owner path")
-    transport = mock_transport() if mock else None
-    sessions = SessionManager(
-        CredentialStore(root), OAuthClient(transport=transport, allow_live=not mock)
-    )
-    provider = ProviderClient(sessions, transport=transport, allow_live=not mock)
-    published = descriptors(mock=mock)
-    capability = InferenceCapability(
-        provider,
-        target_node=startup.transport_id,
-        callable_id=published[1].id,
-        descriptor_revision=published[1].revision,
-        enabled=configuration.inference_enabled,
-    )
-    gateway = GatewayService(
-        capability, callable_id=published[4].id, revision=published[4].revision
-    )
-    streamed_gateway = GatewayService(
-        capability, callable_id=published[6].id, revision=published[6].revision
-    )
-    checkpoint_store: CheckpointStore | None = None
-    profiles: dict[str, CompactionProfile] = {}
-    worker = None
-    if configuration.continuation is not None:
-        policy = configuration.continuation.storage
-        checkpoint_store = CheckpointStore(
-            sessions.store,
-            target_node=startup.transport_id,
-            callable_id=published[7].id,
-            descriptor_revision=published[7].revision,
-            clock=capability.clock,
-            retention_seconds=policy.retention_seconds,
-            maximum_records=policy.maximum_records,
-            maximum_storage_bytes=policy.maximum_storage_bytes,
+        if not root.is_absolute():
+            raise ValueError("managed account storage must be an absolute owner path")
+        await asyncio.to_thread(root.mkdir, mode=0o700, parents=True, exist_ok=True)
+        resources.enter_context(application_fence(root))
+        transport = mock_transport() if mock else None
+        sessions = SessionManager(
+            CredentialStore(root), OAuthClient(transport=transport, allow_live=not mock)
         )
-        worker = resources.enter_context(checkpoint_store.worker())
-        profiles = {
-            profile.model: profile for profile in configuration.continuation.profiles
-        }
-    reader, writer = await asyncio.open_unix_connection(startup.socket)
-    executions: set[asyncio.Task[None]] = set()
-    rejections: set[asyncio.Task[None]] = set()
-    management = ManagementServer(capability, checkpoints=checkpoint_store)
+        provider = ProviderClient(sessions, transport=transport, allow_live=not mock)
+        published = descriptors(mock=mock)
+        capability = InferenceCapability(
+            provider,
+            target_node=target_node,
+            callable_id=published[1].id,
+            descriptor_revision=published[1].revision,
+            enabled=configuration.inference_enabled,
+        )
+        gateway = GatewayService(
+            capability, callable_id=published[4].id, revision=published[4].revision
+        )
+        streamed_gateway = GatewayService(
+            capability, callable_id=published[6].id, revision=published[6].revision
+        )
+        checkpoint_store: CheckpointStore | None = None
+        profiles: dict[str, CompactionProfile] = {}
+        worker = None
+        if configuration.continuation is not None:
+            policy = configuration.continuation.storage
+            checkpoint_store = CheckpointStore(
+                sessions.store,
+                target_node=target_node,
+                callable_id=published[7].id,
+                descriptor_revision=published[7].revision,
+                clock=capability.clock,
+                retention_seconds=policy.retention_seconds,
+                maximum_records=policy.maximum_records,
+                maximum_storage_bytes=policy.maximum_storage_bytes,
+            )
+            worker = resources.enter_context(checkpoint_store.worker())
+            profiles = {
+                profile.model: profile
+                for profile in configuration.continuation.profiles
+            }
+        management = ManagementServer(capability, checkpoints=checkpoint_store)
 
-    async def handler(
-        call: StreamInvoke, inputs: AsyncIterator[StreamFrame]
-    ) -> AsyncGenerator[StreamFrame]:
-        if call.capability_id == published[7].id:
-            sequence = 1
-            receipt_operation = False
-            try:
-                proof = _CONTINUATION_PROOF.validate_json(json.dumps(call.payload))
-                receipt_operation = isinstance(proof, ReceiptProof)
-                if worker is None or checkpoint_store is None or not capability.enabled:
-                    raise ContinuationFailure("authority_unavailable")
-                if isinstance(proof, ReceiptProof):
-                    async for _ in request_body_chunks(call.call_id, inputs):
-                        raise ValueError("receipt operation forbids request media")
-                    receipt = await asyncio.to_thread(checkpoint_store.receipt, proof)
+        async def handler(
+            call: ApplicationCall, inputs: AsyncIterator[StreamFrame]
+        ) -> AsyncGenerator[StreamFrame]:
+            if call.capability_id == published[7].id:
+                sequence = 1
+                receipt_operation = False
+                try:
+                    proof = _CONTINUATION_PROOF.validate_json(json.dumps(call.payload))
+                    receipt_operation = isinstance(proof, ReceiptProof)
+                    if (
+                        worker is None
+                        or checkpoint_store is None
+                        or not capability.enabled
+                    ):
+                        raise ContinuationFailure("authority_unavailable")
+                    if isinstance(proof, ReceiptProof):
+                        async for _ in request_body_chunks(call.call_id, inputs):
+                            raise ValueError("receipt operation forbids request media")
+                        receipt = await asyncio.to_thread(
+                            checkpoint_store.receipt, proof
+                        )
+                        yield StreamFrame(
+                            call_id=call.call_id,
+                            direction="provider_to_caller",
+                            sequence=sequence,
+                            kind="chunk",
+                            payload=_OBJECT.validate_json(
+                                ReceiptOutcome(receipt=receipt).model_dump_json()
+                            ),
+                        )
+                        sequence += 1
+                    else:
+                        service = ContinuationService(
+                            worker,
+                            provider,
+                            profile=profiles.get(proof.request.target.model),
+                            chat_callable_id=published[6].id,
+                        )
+                        async with aclosing(
+                            service.generate_streamed(
+                                proof, request_body_chunks(call.call_id, inputs)
+                            )
+                        ) as events:
+                            async for event in events:
+                                for fragment in continuation_chunks(event):
+                                    yield StreamFrame(
+                                        call_id=call.call_id,
+                                        direction="provider_to_caller",
+                                        sequence=sequence,
+                                        kind="chunk",
+                                        payload=_OBJECT.validate_json(
+                                            fragment.model_dump_json()
+                                        ),
+                                    )
+                                    sequence += 1
+                except (ValueError, ContinuationFailure) as failure:
+                    code = (
+                        failure.code
+                        if isinstance(failure, ContinuationFailure)
+                        else "authority_unavailable"
+                    )
+                    outcome = (
+                        ReceiptOutcome(error=code)
+                        if receipt_operation
+                        else ContinuationEvent(
+                            event=ChatEvent(kind="failed", error="policy_denied"),
+                            continuation_error=code,
+                        )
+                    )
                     yield StreamFrame(
                         call_id=call.call_id,
                         direction="provider_to_caller",
                         sequence=sequence,
                         kind="chunk",
-                        payload=_OBJECT.validate_json(
-                            ReceiptOutcome(receipt=receipt).model_dump_json()
-                        ),
+                        payload=_OBJECT.validate_json(outcome.model_dump_json()),
                     )
                     sequence += 1
-                else:
-                    service = ContinuationService(
-                        worker,
-                        provider,
-                        profile=profiles.get(proof.request.target.model),
-                        chat_callable_id=published[6].id,
-                    )
-                    async with aclosing(
-                        service.generate_streamed(
-                            proof, request_body_chunks(call.call_id, inputs)
-                        )
-                    ) as events:
-                        async for event in events:
-                            for fragment in continuation_chunks(event):
-                                yield StreamFrame(
-                                    call_id=call.call_id,
-                                    direction="provider_to_caller",
-                                    sequence=sequence,
-                                    kind="chunk",
-                                    payload=_OBJECT.validate_json(
-                                        fragment.model_dump_json()
-                                    ),
-                                )
-                                sequence += 1
-            except (ValueError, ContinuationFailure) as failure:
-                code = (
-                    failure.code
-                    if isinstance(failure, ContinuationFailure)
-                    else "authority_unavailable"
-                )
-                outcome = (
-                    ReceiptOutcome(error=code)
-                    if receipt_operation
-                    else ContinuationEvent(
-                        event=ChatEvent(kind="failed", error="policy_denied"),
-                        continuation_error=code,
-                    )
-                )
                 yield StreamFrame(
                     call_id=call.call_id,
                     direction="provider_to_caller",
                     sequence=sequence,
-                    kind="chunk",
-                    payload=_OBJECT.validate_json(outcome.model_dump_json()),
+                    kind="completed",
+                    payload={},
                 )
-                sequence += 1
-            yield StreamFrame(
-                call_id=call.call_id,
-                direction="provider_to_caller",
-                sequence=sequence,
-                kind="completed",
-                payload={},
-            )
-            return
-        if call.capability_id == published[4].id:
+                return
+            if call.capability_id == published[4].id:
+                try:
+                    proof = (
+                        StreamedProof.model_validate_json(json.dumps(call.payload))
+                        if call.version == "0.2.0"
+                        else GatewayProof.model_validate_json(json.dumps(call.payload))
+                    )
+                except ValueError:
+                    yield StreamFrame(
+                        call_id=call.call_id,
+                        direction="provider_to_caller",
+                        sequence=1,
+                        kind="failed",
+                        error=StreamError(
+                            code="provider_error", message="policy_denied"
+                        ),
+                    )
+                    return
+                sequence = 1
+                output = (
+                    streamed_gateway.generate_streamed(
+                        proof, request_body_chunks(call.call_id, inputs)
+                    )
+                    if isinstance(proof, StreamedProof)
+                    else gateway.generate(proof)
+                )
+                async with aclosing(output) as events:
+                    async for event in events:
+                        # Fragment large text/tool deltas while preserving the
+                        # common terminal, usage and tool identity. A per-frame
+                        # resource fence must not become an output cap.
+                        fragments = (
+                            (
+                                fragment.event
+                                for fragment in continuation_chunks(
+                                    ContinuationEvent(event=event)
+                                )
+                            )
+                            if event.kind == "delta"
+                            else (event,)
+                        )
+                        for fragment in fragments:
+                            yield StreamFrame(
+                                call_id=call.call_id,
+                                direction="provider_to_caller",
+                                sequence=sequence,
+                                kind="chunk",
+                                payload=_OBJECT.validate_json(
+                                    fragment.model_dump_json()
+                                ),
+                            )
+                            sequence += 1
+                yield StreamFrame(
+                    call_id=call.call_id,
+                    direction="provider_to_caller",
+                    sequence=sequence,
+                    kind="completed",
+                    payload={},
+                )
+                return
             try:
-                proof = (
-                    StreamedProof.model_validate_json(json.dumps(call.payload))
-                    if call.version == "0.2.0"
-                    else GatewayProof.model_validate_json(json.dumps(call.payload))
-                )
-            except ValueError:
+                signed = SignedInvocation.model_validate_json(json.dumps(call.payload))
+            except (ValueError, TypeError):
                 yield StreamFrame(
                     call_id=call.call_id,
                     direction="provider_to_caller",
@@ -532,248 +622,238 @@ async def _serve(
                 )
                 return
             sequence = 1
-            output = (
-                streamed_gateway.generate_streamed(
-                    proof, request_body_chunks(call.call_id, inputs)
-                )
-                if isinstance(proof, StreamedProof)
-                else gateway.generate(proof)
-            )
-            async with aclosing(output) as events:
+            async with aclosing(capability.generate(signed)) as events:
                 async for event in events:
-                    # Carry the common terminal as a validated chunk before the
-                    # transport terminal, retaining usage and finish reason.
-                    yield StreamFrame(
-                        call_id=call.call_id,
-                        direction="provider_to_caller",
-                        sequence=sequence,
-                        kind="chunk",
-                        payload=_OBJECT.validate_json(event.model_dump_json()),
-                    )
+                    if event.kind == "text":
+                        yield StreamFrame(
+                            call_id=call.call_id,
+                            direction="provider_to_caller",
+                            sequence=sequence,
+                            kind="chunk",
+                            payload=_OBJECT.validate_json(event.model_dump_json()),
+                        )
+                    elif event.kind == "completed":
+                        yield StreamFrame(
+                            call_id=call.call_id,
+                            direction="provider_to_caller",
+                            sequence=sequence,
+                            kind="completed",
+                            payload={},
+                        )
+                    else:
+                        yield StreamFrame(
+                            call_id=call.call_id,
+                            direction="provider_to_caller",
+                            sequence=sequence,
+                            kind="failed",
+                            error=StreamError(
+                                code="provider_error",
+                                message=event.error or "upstream_failed",
+                            ),
+                        )
                     sequence += 1
-            yield StreamFrame(
-                call_id=call.call_id,
-                direction="provider_to_caller",
-                sequence=sequence,
-                kind="completed",
-                payload={},
-            )
-            return
+
+        async def read(identifier: str) -> dict[str, JsonValue]:
+            if identifier == published[5].id:
+                catalog = await streamed_gateway.streamed_catalog()
+                value = catalog.model_dump_json() if catalog is not None else "{}"
+            elif identifier == published[3].id:
+                catalog = await gateway.catalog()
+                value = catalog.model_dump_json() if catalog is not None else "{}"
+            elif identifier == published[0].id:
+                value = (await capability.discovery()).model_dump_json()
+            elif identifier == published[2].id:
+                value = Status(
+                    connection=(await sessions.status()).state,
+                    requests_started=provider.requests_started,
+                ).model_dump_json()
+            else:
+                raise ValueError("undeclared read capability")
+            return _OBJECT.validate_json(value)
+
+        async def catalog_worker() -> None:
+            """Own bounded metadata refresh without generation or grant renewal."""
+            while True:
+                if capability.enabled:
+                    await refresh_cached_catalog(provider)
+                await asyncio.sleep(30)
+
         try:
-            signed = SignedInvocation.model_validate_json(json.dumps(call.payload))
-        except (ValueError, TypeError):
+            await management.start()
+            async with asyncio.TaskGroup() as tasks:
+                refresh = tasks.create_task(catalog_worker()) if not mock else None
+                try:
+                    yield ApplicationServices(management, read, handler)
+                finally:
+                    if refresh is not None:
+                        refresh.cancel()
+        finally:
+            await management.close()
+
+
+async def _serve(startup: Startup, configuration: Configuration) -> None:
+    async with open_application(
+        startup.transport_id,
+        configuration,
+        mock=startup.manifest.bundle_id.endswith(".mock"),
+    ) as services:
+        published = startup.manifest.descriptors
+        management = services.management
+
+        async def handler(
+            call: StreamInvoke, inputs: AsyncIterator[StreamFrame]
+        ) -> AsyncGenerator[StreamFrame]:
+            domain_call = ApplicationCall(
+                call.call_id, call.capability_id, call.version, call.payload
+            )
+            async with aclosing(services.stream(domain_call, inputs)) as events:
+                async for event in events:
+                    yield event
+
+        reader, writer = await asyncio.open_unix_connection(startup.socket)
+        executions: set[asyncio.Task[None]] = set()
+        rejections: set[asyncio.Task[None]] = set()
+
+        async def serve_one(call: StreamInvoke, *, reject: bool = False) -> None:
+            try:
+                await execute_stream(startup, call, overloaded if reject else handler)
+            except (
+                TimeoutError,
+                asyncio.IncompleteReadError,
+                ConnectionError,
+                ProtocolError,
+            ):
+                return
+            except OSError as error:
+                # A peer can disappear after commit but before the SDK's output
+                # half-close. Unix shutdown reports ENOTCONN as a plain OSError;
+                # that one call ending must not tear down receipt recovery/health.
+                if error.errno != errno.ENOTCONN:
+                    raise
+
+        async def overloaded(
+            call: StreamInvoke, inputs: AsyncIterator[StreamFrame]
+        ) -> AsyncGenerator[StreamFrame]:
+            """Refuse excess work on its own channel without killing the child."""
+            _ = inputs
             yield StreamFrame(
                 call_id=call.call_id,
                 direction="provider_to_caller",
                 sequence=1,
                 kind="failed",
-                error=StreamError(code="provider_error", message="policy_denied"),
+                error=StreamError(code="provider_error", message="overloaded"),
             )
-            return
-        sequence = 1
-        async with aclosing(capability.generate(signed)) as events:
-            async for event in events:
-                if event.kind == "text":
-                    yield StreamFrame(
-                        call_id=call.call_id,
-                        direction="provider_to_caller",
-                        sequence=sequence,
-                        kind="chunk",
-                        payload=_OBJECT.validate_json(event.model_dump_json()),
-                    )
-                elif event.kind == "completed":
-                    yield StreamFrame(
-                        call_id=call.call_id,
-                        direction="provider_to_caller",
-                        sequence=sequence,
-                        kind="completed",
-                        payload={},
-                    )
-                else:
-                    yield StreamFrame(
-                        call_id=call.call_id,
-                        direction="provider_to_caller",
-                        sequence=sequence,
-                        kind="failed",
-                        error=StreamError(
-                            code="provider_error",
-                            message=event.error or "upstream_failed",
-                        ),
-                    )
-                sequence += 1
 
-    async def serve_one(call: StreamInvoke, *, reject: bool = False) -> None:
         try:
-            await execute_stream(startup, call, overloaded if reject else handler)
-        except (
-            TimeoutError,
-            asyncio.IncompleteReadError,
-            ConnectionError,
-            ProtocolError,
-        ):
-            return
-        except OSError as error:
-            # A peer can disappear after commit but before the SDK's output
-            # half-close. Unix shutdown reports ENOTCONN as a plain OSError;
-            # that one call ending must not tear down receipt recovery/health.
-            if error.errno != errno.ENOTCONN:
-                raise
-
-    async def overloaded(
-        call: StreamInvoke, inputs: AsyncIterator[StreamFrame]
-    ) -> AsyncGenerator[StreamFrame]:
-        """Refuse excess work on its own channel without killing the child."""
-        _ = inputs
-        yield StreamFrame(
-            call_id=call.call_id,
-            direction="provider_to_caller",
-            sequence=1,
-            kind="failed",
-            error=StreamError(code="provider_error", message="overloaded"),
-        )
-
-    async def catalog_worker() -> None:
-        """Own bounded account metadata refresh, never generation or grant renewal."""
-        while True:
-            if capability.enabled:
-                await refresh_cached_catalog(provider)
-            await asyncio.sleep(30)
-
-    try:
-        await management.start()
-        await write_message(
-            writer,
-            Hello(
-                host_id=startup.host_id,
-                transport_node_id=startup.transport_id,
-                capability_node_id=startup.node_id,
-                bundle_id=startup.manifest.bundle_id,
-                bundle_version=startup.manifest.bundle_version,
-                token=startup.token,
-                manifest_sha256=manifest_digest(startup.manifest),
-            ),
-        )
-        async with asyncio.TaskGroup() as tasks:
-            refresh = tasks.create_task(catalog_worker()) if not mock else None
-            try:
-                while True:
-                    message = await read_message(reader)
-                    if isinstance(message, Shutdown):
-                        return
-                    if isinstance(message, Health):
-                        await write_message(
-                            writer,
-                            Health(
-                                nonce=message.nonce,
-                                ready=True,
-                                surfaces=(
-                                    SurfaceReport(
-                                        surface_id="management",
-                                        ready=True,
-                                        url=management.url + "/",
+            await write_message(
+                writer,
+                Hello(
+                    host_id=startup.host_id,
+                    transport_node_id=startup.transport_id,
+                    capability_node_id=startup.node_id,
+                    bundle_id=startup.manifest.bundle_id,
+                    bundle_version=startup.manifest.bundle_version,
+                    token=startup.token,
+                    manifest_sha256=manifest_digest(startup.manifest),
+                ),
+            )
+            async with asyncio.TaskGroup() as tasks:
+                try:
+                    while True:
+                        message = await read_message(reader)
+                        if isinstance(message, Shutdown):
+                            return
+                        if isinstance(message, Health):
+                            await write_message(
+                                writer,
+                                Health(
+                                    nonce=message.nonce,
+                                    ready=True,
+                                    surfaces=(
+                                        SurfaceReport(
+                                            surface_id="management",
+                                            ready=True,
+                                            url=management.url + "/",
+                                        ),
                                     ),
                                 ),
-                            ),
-                        )
-                    elif isinstance(message, Invoke):
-                        expected = next(
-                            (
-                                item
-                                for item in (
-                                    published[0],
-                                    published[2],
-                                    published[3],
-                                    published[5],
-                                )
-                                if item.id == message.capability_id
-                            ),
-                            None,
-                        )
-                        if (
-                            expected is None
-                            or message.version != expected.version
-                            or message.descriptor_revision != expected.revision
-                            or message.payload
-                        ):
-                            result = Result(
-                                call_id=message.call_id,
-                                payload=None,
-                                error="invalid_payload",
                             )
-                        else:
-                            if expected.id == published[5].id:
-                                catalog = await streamed_gateway.streamed_catalog()
-                                value = (
-                                    catalog.model_dump_json()
-                                    if catalog is not None
-                                    else "{}"
+                        elif isinstance(message, Invoke):
+                            expected = next(
+                                (
+                                    item
+                                    for item in (
+                                        published[0],
+                                        published[2],
+                                        published[3],
+                                        published[5],
+                                    )
+                                    if item.id == message.capability_id
+                                ),
+                                None,
+                            )
+                            if (
+                                expected is None
+                                or message.version != expected.version
+                                or message.descriptor_revision != expected.revision
+                                or message.payload
+                            ):
+                                result = Result(
+                                    call_id=message.call_id,
+                                    payload=None,
+                                    error="invalid_payload",
                                 )
-                            elif expected.id == published[3].id:
-                                catalog = await gateway.catalog()
-                                value = (
-                                    catalog.model_dump_json()
-                                    if catalog is not None
-                                    else "{}"
-                                )
-                            elif expected.id == published[0].id:
-                                value = (await capability.discovery()).model_dump_json()
                             else:
-                                value = Status(
-                                    connection=(await sessions.status()).state,
-                                    requests_started=provider.requests_started,
-                                ).model_dump_json()
-                            result = Result(
-                                call_id=message.call_id,
-                                payload=_OBJECT.validate_json(value),
-                                error=None,
+                                value = await services.read(expected.id)
+                                result = Result(
+                                    call_id=message.call_id,
+                                    payload=value,
+                                    error=None,
+                                )
+                            await write_message(writer, result)
+                        elif isinstance(message, StreamInvoke):
+                            expected = next(
+                                (
+                                    item
+                                    for item in (
+                                        published[1],
+                                        published[4],
+                                        published[6],
+                                        published[7],
+                                    )
+                                    if item.id == message.capability_id
+                                    and item.version == message.version
+                                ),
+                                None,
                             )
-                        await write_message(writer, result)
-                    elif isinstance(message, StreamInvoke):
-                        expected = next(
-                            (
-                                item
-                                for item in (
-                                    published[1],
-                                    published[4],
-                                    published[6],
-                                    published[7],
-                                )
-                                if item.id == message.capability_id
-                                and item.version == message.version
-                            ),
-                            None,
-                        )
-                        if (
-                            expected is None
-                            or message.version != expected.version
-                            or message.descriptor_revision != expected.revision
-                        ):
-                            raise ProtocolError("invalid managed stream")
-                        if len(executions) >= 4:
-                            if len(rejections) < 4:
-                                rejection = tasks.create_task(
-                                    serve_one(message, reject=True)
-                                )
-                                rejections.add(rejection)
-                                rejection.add_done_callback(rejections.discard)
-                            # Further excess calls expire at their owner deadline;
-                            # never allocate unbounded rejection tasks or block
-                            # primary health/shutdown on a media handshake.
+                            if (
+                                expected is None
+                                or message.version != expected.version
+                                or message.descriptor_revision != expected.revision
+                            ):
+                                raise ProtocolError("invalid managed stream")
+                            if len(executions) >= 4:
+                                if len(rejections) < 4:
+                                    rejection = tasks.create_task(
+                                        serve_one(message, reject=True)
+                                    )
+                                    rejections.add(rejection)
+                                    rejection.add_done_callback(rejections.discard)
+                                # Further excess calls expire at their owner deadline;
+                                # never allocate unbounded rejection tasks or block
+                                # primary health/shutdown on a media handshake.
+                            else:
+                                execution = tasks.create_task(serve_one(message))
+                                executions.add(execution)
+                                execution.add_done_callback(executions.discard)
                         else:
-                            execution = tasks.create_task(serve_one(message))
-                            executions.add(execution)
-                            execution.add_done_callback(executions.discard)
-                    else:
-                        raise ProtocolError("unexpected primary message")
-            finally:
-                for execution in (*executions, *rejections):
-                    execution.cancel()
-                if refresh is not None:
-                    refresh.cancel()
-    finally:
-        await management.close()
-        writer.close()
-        await writer.wait_closed()
+                            raise ProtocolError("unexpected primary message")
+                finally:
+                    for execution in (*executions, *rejections):
+                        execution.cancel()
+        finally:
+            writer.close()
+            await writer.wait_closed()
 
 
 def main() -> None:

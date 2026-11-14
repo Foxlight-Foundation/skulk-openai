@@ -5,10 +5,12 @@ packages. No GitHub account, SDK account, private repository, provider account,
 model, GPU or fleet lease is needed for the steps below. This repository remains
 Apache-2.0; the separately licensed owner runtime stays outside its source bundle.
 
-The root `uv.lock` records public binary URLs and hashes for the currently
-qualified runtime, owner 0.10.5 and SDK 0.5.5. The author environment below uses
-public SDK 0.5.7 and tools 0.1.0. Their eleven SDK runtime modules are identical;
-these are still distinct package versions. The SDK/owner wheel files are
+The earlier installed runtime qualified owner 0.10.5 and SDK 0.5.5. This source
+candidate explicitly selects public SDK 0.5.10rc1 for its process and author
+checks; it does not reissue that installed runtime. Tools remain 0.1.0, and the
+legacy publisher group still selects owner 0.10.5. Native packaging requires a
+separate compatible owner candidate; see [native managed adoption](native-managed.md).
+The SDK/owner wheel files are
 universal Python wheels even though their immutable origin directory is named
 for the publishing runner; native dependencies are selected for the target
 platform by the lock. Supported release targets remain macOS arm64 and glibc
@@ -20,10 +22,10 @@ in separate environments because their SDK version requirements differ.
 From this source checkout, using Python 3.13 and uv:
 
 ```sh
-uv sync --frozen --group managed
+uv sync --frozen --group managed --group native-runtime
 uv run --no-sync basedpyright
 uv run --no-sync pytest
-uv run --no-sync basedpyright src/skulk_openai/managed.py examples tests_managed
+uv run --no-sync basedpyright --project pyrightconfig.managed.json
 uv run --no-sync pytest tests_managed
 node --test tests_web/*.test.cjs
 
@@ -67,15 +69,19 @@ Path("manifest.json").write_text(manifest.model_dump_json())
 PY
 .author-venv/bin/skulk-cap build --project . \
   --output "$INTEGRATOR_BUILD/unsigned"
-.author-venv/bin/skulk-cap wheelhouse --spec capability.toml --lock uv.lock \
-  --output "$INTEGRATOR_BUILD/wheelhouse"
 ```
 
 The builder validates the manifest, deterministic source archive and import
-closure. Wheelhouse acquisition verifies every selected wheel hash and requires
-binary compatibility with the current platform. The root lock has no Git sources;
-this path builds neither Core nor the owner from source. Repeat on each target
-platform before making a corresponding qualification claim.
+closure. This experimental branch's lock deliberately selects prereleases;
+tools 0.1.0 does not admit them for runtime wheelhouse/signing. The source build
+above is qualified, while public native packaging needs a coordinated tools/owner
+refresh. Do not substitute dependency bytes or describe this source archive as an
+installable native release.
+
+For the released legacy wheelhouse and signing recipe, use the qualified release's
+source and lock. Wheelhouse acquisition verifies every selected hash and requires
+binary compatibility with the current platform. It does not build Core or the
+owner from source. Repeat on each target before making a qualification claim.
 
 The generated `manifest.json` is a local build input, not account state or a
 signed release. Remove it after the build. For a real release, omit `mock=True`
@@ -93,6 +99,8 @@ and this reference's [release inputs and commands](releasing.md). Use the
 of the older `capability-build`, `capability-catalog` and `capability-wheelhouse`
 entry points. Declare a new publisher identity and keep its private key outside
 all release/feed inputs. Public package access grants no host or publisher trust.
+Those released legacy commands do not enable signing this branch's native
+candidate or its prerelease runtime lock.
 
 The mock has a distinct bundle and callable IDs. Before enabling it on an
 isolated author host, set its `state_directory` configuration to a new absolute

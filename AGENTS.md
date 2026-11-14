@@ -28,9 +28,9 @@ Before every implementation commit run:
     git diff --cached --check
 
 Managed SDK tests are a separate explicit suite. Install the anonymous public
-packages with `uv sync --frozen --group managed`; missing dependencies must fail
+packages with `uv sync --frozen --group managed --group native-runtime`; missing dependencies must fail
 explicitly, never silently count as a passing managed test. Also run
-`uv run basedpyright src/skulk_openai/managed.py examples tests_managed` and
+`uv run basedpyright --project pyrightconfig.managed.json` and
 `uv run pytest tests_managed`
 in the managed environment; CI has separate core, public-SDK process and author
 build jobs. Keep author tools and owner runtime in separate isolated environments.
@@ -51,3 +51,5 @@ real provider account or incur inference usage during unattended development.
 Caller authority and protected credential handling must be qualified before
 real-account fabric admission. Use only authorized isolated fleet leases under
 normal coordination rules; never launch a default node into a shared fleet.
+
+Use the dedicated managed type-check configuration: the base configuration excludes optional SDK entrypoints. Native process checks require the actual public native wheel; missing native dependencies must fail collection. Offline migration uses explicit private roots and synthetic state in automated tests.

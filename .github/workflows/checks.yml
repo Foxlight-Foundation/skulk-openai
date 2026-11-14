@@ -41,14 +41,14 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: "0.12.23"
-      - run: uv sync --frozen --group managed
-      - run: uv run --no-sync basedpyright src/skulk_openai/managed.py examples tests_managed
+      - run: uv sync --frozen --group managed --group native-runtime
+      - run: uv run --no-sync basedpyright --project pyrightconfig.managed.json
       - run: uv run --no-sync pytest tests_managed
       - name: Check the public author SDK against the same process suite
         run: |
           set -euo pipefail
           uv pip install --python .venv/bin/python --no-deps --require-hashes -r authoring/sdk-only.txt
-          uv run --no-sync basedpyright src/skulk_openai/managed.py examples tests_managed
+          uv run --no-sync basedpyright --project pyrightconfig.managed.json
           uv run --no-sync pytest tests_managed
   author:
     name: Public author build (${{ matrix.os }})
