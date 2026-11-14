@@ -69,15 +69,19 @@ Path("manifest.json").write_text(manifest.model_dump_json())
 PY
 .author-venv/bin/skulk-cap build --project . \
   --output "$INTEGRATOR_BUILD/unsigned"
-.author-venv/bin/skulk-cap wheelhouse --spec capability.toml --lock uv.lock \
-  --output "$INTEGRATOR_BUILD/wheelhouse"
 ```
 
 The builder validates the manifest, deterministic source archive and import
-closure. Wheelhouse acquisition verifies every selected wheel hash and requires
-binary compatibility with the current platform. The root lock has no Git sources;
-this path builds neither Core nor the owner from source. Repeat on each target
-platform before making a corresponding qualification claim.
+closure. This experimental branch's lock deliberately selects prereleases;
+tools 0.1.0 does not admit them for runtime wheelhouse/signing. The source build
+above is qualified, while public native packaging needs a coordinated tools/owner
+refresh. Do not substitute dependency bytes or describe this source archive as an
+installable native release.
+
+For the released legacy wheelhouse and signing recipe, use the qualified release's
+source and lock. Wheelhouse acquisition verifies every selected hash and requires
+binary compatibility with the current platform. It does not build Core or the
+owner from source. Repeat on each target before making a qualification claim.
 
 The generated `manifest.json` is a local build input, not account state or a
 signed release. Remove it after the build. For a real release, omit `mock=True`
@@ -95,6 +99,8 @@ and this reference's [release inputs and commands](releasing.md). Use the
 of the older `capability-build`, `capability-catalog` and `capability-wheelhouse`
 entry points. Declare a new publisher identity and keep its private key outside
 all release/feed inputs. Public package access grants no host or publisher trust.
+Those released legacy commands do not enable signing this branch's native
+candidate or its prerelease runtime lock.
 
 The mock has a distinct bundle and callable IDs. Before enabling it on an
 isolated author host, set its `state_directory` configuration to a new absolute
