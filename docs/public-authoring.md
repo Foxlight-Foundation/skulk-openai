@@ -5,10 +5,12 @@ packages. No GitHub account, SDK account, private repository, provider account,
 model, GPU or fleet lease is needed for the steps below. This repository remains
 Apache-2.0; the separately licensed owner runtime stays outside its source bundle.
 
-The root `uv.lock` records public binary URLs and hashes for the currently
-qualified runtime, owner 0.10.5 and SDK 0.5.5. The author environment below uses
-public SDK 0.5.7 and tools 0.1.0. Their eleven SDK runtime modules are identical;
-these are still distinct package versions. The SDK/owner wheel files are
+The earlier installed runtime qualified owner 0.10.5 and SDK 0.5.5. This source
+candidate explicitly selects public SDK 0.5.10rc1 for its process and author
+checks; it does not reissue that installed runtime. Tools remain 0.1.0, and the
+legacy publisher group still selects owner 0.10.5. Native packaging requires a
+separate compatible owner candidate; see [native managed adoption](native-managed.md).
+The SDK/owner wheel files are
 universal Python wheels even though their immutable origin directory is named
 for the publishing runner; native dependencies are selected for the target
 platform by the lock. Supported release targets remain macOS arm64 and glibc
@@ -20,10 +22,10 @@ in separate environments because their SDK version requirements differ.
 From this source checkout, using Python 3.13 and uv:
 
 ```sh
-uv sync --frozen --group managed
+uv sync --frozen --group managed --group native-runtime
 uv run --no-sync basedpyright
 uv run --no-sync pytest
-uv run --no-sync basedpyright src/skulk_openai/managed.py examples tests_managed
+uv run --no-sync basedpyright --project pyrightconfig.managed.json
 uv run --no-sync pytest tests_managed
 node --test tests_web/*.test.cjs
 

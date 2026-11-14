@@ -73,7 +73,9 @@ interfaces. The [SDK exercise](docs/managed-example.md) describes the explicit
 managed tests. Credential-free CI runs separate core, managed-process and public-author build
 jobs. The [public author workflow](docs/public-authoring.md) uses anonymous,
 hash-pinned SDK/tools packages; private Git access is unnecessary. Process and
-unsigned-build checks remain distinct from signed installed qualification.
+unsigned-build checks remain distinct from signed installed qualification. The
+experimental [native managed entrypoint](docs/native-managed.md) documents its
+explicit contract bindings, protected state operations and qualification boundary.
 
 The optional [model qualification tool](docs/model-qualification.md) plans from
 the installed unified catalog and requires explicit execution for synthetic

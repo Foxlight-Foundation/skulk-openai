@@ -15,3 +15,11 @@ openai-account/
 # Local public author inputs/environments
 .author-venv/
 manifest.json
+
+# Capability-owned private state and backup receipts
+credentials.sqlite3*
+continuation.key
+*-worker.lock
+native-adoption.json
+snapshot.json
+state-transfer.pending

@@ -63,6 +63,13 @@ class CredentialStore:
 
     @staticmethod
     def _check(path: Path, *, directory: bool = False) -> None:
+        if directory and (
+            (path / "state-transfer.pending").exists()
+            or (path / "state-transfer.pending").is_symlink()
+        ):
+            # A partially restored journal must never become live authority.
+            # Recovery releases this guard only after quarantine commits.
+            raise AuthFailure("credentials_unavailable")
         value = path.lstat()
         correct_type = (
             stat.S_ISDIR(value.st_mode) if directory else stat.S_ISREG(value.st_mode)
