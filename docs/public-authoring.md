@@ -89,6 +89,36 @@ only after reviewing the live contract and following the separate account and
 installed qualification requirements. Merely importing the factory or building
 the archive does not connect an account.
 
+## Explicit native candidate tools
+
+The separately selected [SDK0.5.11rc1 / tools0.2.0rc1 prerelease](https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/tag/v0.5.11-rc.1)
+adds native signing and candidate wheelhouse support. It does not replace the
+legacy source-build recipe above. Read the [native publisher contract and inputs](https://github.com/Foxlight-Foundation/skulk-capability-sdk/blob/4361305db103fea95e86daf905cc8de3d90dc50f/docs/native-publishing.md)
+before building this branch's native entrypoint.
+
+The SDK and tools wheel identities are recorded in that release's
+`author-candidates.json` and `SHA256SUMS`. Acquire them anonymously, separately
+from the runtime owner, and select the published native0.7.0rc4 binary for the
+publishing host. `capability-build --inference-runtime` uses the actual compiled
+managed/2 declaration. `capability-wheelhouse --native-candidate` independently
+permits exact locked prereleases and the native Linux floor; neither flag grants
+execution, an account connection or publisher trust.
+
+For this reference, use `capability-native.toml` and
+`skulk_openai.native_contracts.build_native_manifest`. Keep `mock=True` for a new
+synthetic candidate and use an explicit dedicated state directory. Supply an
+independently qualified native owner wheelhouse, the measured Core source and
+a disposable signing key outside the bundle. The legacy publisher group and
+ordinary runtime recipe do not provide that native owner. Native catalog
+publication and installed runtime delivery are separate from a successful build.
+
+The tools' installed public CLI has built the real reference from a frozen
+30-wheel closure, reproducing the qualified owner-wheel hash. The signed result
+passed19 synthetic macOS installation checks, including settings UI, continuation,
+withdrawal and rollback. This establishes that author path for those exact
+inputs. It does not establish anonymous acquisition of a complete native owner
+recipe, Linux installation of this application, or a real-account migration.
+
 ## Sign, publish and install
 
 The public tools provide `skulk-cap keygen`, `sign`, `catalog`, `inspect`,
