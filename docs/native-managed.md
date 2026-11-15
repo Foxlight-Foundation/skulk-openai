@@ -15,7 +15,7 @@ These process checks use generated accounts, actual native codecs and mock
 upstream transports. They are separate from normally signed host installation,
 account-backed model qualification and stable release admission.
 
-On macOS, a separate 12-check installed gate exercised the actual source bundle
+An earlier macOS 12-check installed gate exercised the actual source bundle
 through the normal signed publisher, Core installer and owner with an explicitly
 built owner 0.18 candidate. It recovered a populated legacy checkpoint, enrolled
 the actual installed child, discovered all eight native contracts, performed a
@@ -146,17 +146,53 @@ reverified and its authority is quarantined, protecting older readers that do no
 understand the pending marker. Publication refuses an existing journal.
 Existing roots are never overwritten and uncertain submissions are never replayed.
 
+## Native models in Chat and the unified API
+
+The coordinated [Core candidate](https://github.com/Foxlight-Foundation/Skulk/pull/1390)
+adds generic native model discovery, Chat Completions and continuation-receipt
+adapters. It remains on the experimental startup branch; this is not a stable
+Skulk release or a newly published Integrator runtime.
+
+An authorized Core owner or enrolled client discovers its permitted native
+models through `GET /models` or `GET /v1/models`. Use the returned model ID
+unchanged in `POST /v1/chat/completions`:
+
+```text
+native/{installation}/{native-chat-id}@{version}/{model-slug}
+```
+
+Core caller enrollment and exact native grants are separate from capability
+account/model policy and application signatures. A dummy local-model API key
+does not inherit owner access. Chat uses authenticated discovery and keeps an
+unavailable native selection until the user explicitly chooses another model.
+
+Continuation receipt lookup uses `POST /v1/chat/continuation/receipt` with the
+saved model ID in its `native_model` query parameter. The signed application
+proof target and original body bytes remain unchanged. Receipt recovery never
+resubmits inference or falls back to a legacy transport. Code, tools, media and
+existing mounted-speech composition use the shared Chat serializers; the
+capability remains responsible for provider translation and account settings.
+
+Qualification covers one installed Integrator. Broader catalogs retain a Core
+follow-up: caller permission filtering must precede the eight-metadata-candidate
+read limit so inaccessible earlier catalogs cannot hide a permitted later one.
+
 ## Native candidate publication
 
 The [public authoring guide](public-authoring.md#explicit-native-candidate-tools)
 identifies the separate SDK/tools candidate and its explicit build path. The
 native declaration, runtime owner and Core remain independently selected.
-Qualified signed macOS installation with synthetic populated state now covers19
-checks through the normal installer and owner: exact caller enrollment, native
-continuation, management UI/settings, withdrawal, current-journal rollback and
-quarantined restore. The owner/Core host layer has separate three-platform
-qualification. These scopes do not establish Linux Integrator installation,
-real-account adoption or native model discovery in the unified Chat/API adapter.
+Qualified signed macOS installation with synthetic populated state now covers
+26 checks through the normal installer and owner: exact caller enrollment,
+metadata and model discovery, streamed/collected Chat API, independent application
+signature refusal, continuation and receipt recovery without replay, management
+UI/settings, browser key approval, two-tab continuation, withdrawal,
+current-journal rollback and quarantined restore. Provider requests use a mock
+transport. This does not qualify account-backed native inference or actual
+mounted speech, Linux Integrator installation, public first-user onboarding or
+coordinated runtime/catalog distribution. The owner/Core host layer has separate
+three-platform qualification. No existing connected account or history was
+changed by this synthetic gate.
 
 ## Management surface
 
@@ -166,5 +202,7 @@ therefore declares a proxied surface and reports its actual private port. It
 does not publish an HTTP URL under a false HTTPS scheme. A qualified native
 owner can bind that private listener to an isolated loopback management origin;
 Core exposes its ready Open action. Browser settings and CSRF are handled by
-the capability. Unified-chat discovery requires its own native adapter before
-replacing an existing installed integration.
+the capability. The coordinated native Chat/API candidate above supplies discovery. Replacing
+an existing connected development installation still requires compatible signed
+packages, exact caller enrollment and preservation of its useful account and
+conversation state.
