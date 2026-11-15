@@ -80,6 +80,13 @@ def test_native_manifest_admits_all_actual_contract_bindings(mock: bool) -> None
     assert bindings[4].revision != bindings[6].revision
     assert bindings[4].declaration["processing_domain"] == "external"
     assert bindings[2].declaration["processing_domain"] == "local"
+    annotations = _OBJECT.validate_python(
+        bindings[6].declaration["annotations"], strict=True
+    )
+    assert annotations["inference.envelope"] == "skulk.application-envelope@1.0.0"
+    assert annotations["inference.contract"] == "chat.completions@0.2.0"
+    assert annotations["inference.application.revision"] == bindings[6].legacy.revision
+    assert annotations["inference.application.id"] == bindings[6].legacy.id
 
 
 async def test_native_disabled_settings_ui_and_listener_ownership(
@@ -133,7 +140,7 @@ async def test_native_signed_generation_and_replay_fence(tmp_path: Path) -> None
             assert frames[-1]["kind"] == expected
         assert (await read(child, 2))["requests_started"] == 1
         # A legacy revision is not interchangeable with the full native target.
-        wrong = wrap_payload(binding, proof) | {"legacy_revision": binding.revision}
+        wrong = wrap_payload(binding, proof) | {"revision": binding.revision}
         await child.invoke(1, proof, envelope=wrong)
         refusal, body = await child.receive()
         assert refusal["error"] == "invalid_payload" and not body
