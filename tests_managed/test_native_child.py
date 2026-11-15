@@ -336,6 +336,83 @@ async def test_native_large_text_and_function_arguments_are_exact(
         assert all(len(json.dumps(frame).encode()) < 65536 for frame in frames)
 
 
+@pytest.mark.parametrize(
+    "address", ["exact", "wrong_callable", "wrong_version", "wrong_model", "tampered"]
+)
+async def test_native_http_continuation_validates_transport_model_without_rewriting(
+    tmp_path: Path, address: str
+) -> None:
+    """A native child validates its HTTP model before provider egress."""
+    from skulk_inference_reference.continuation_wire import ContinuationEvent
+    from skulk_openai.checkpoints import CheckpointPolicy
+    from skulk_openai.managed import ContinuationConfiguration
+    from tests.test_checkpoints import USER, signed
+    from tests_managed.test_continuation_child import enrolled
+
+    store, credential = await enrolled(tmp_path)
+    proof, original = signed(store, credential, [USER])
+    model = "native/managed.example/mock-openai.native.chat@0.2.0/text-a"
+    if address == "wrong_callable":
+        model = model.replace(".chat@", ".other@")
+    elif address == "wrong_version":
+        model = model.replace("@0.2.0", "@0.1.0")
+    elif address == "wrong_model":
+        model = model.replace("text-a", "text-b")
+    body = json.dumps(
+        {**_OBJECT.validate_json(original), "model": model, "stream": True},
+        indent=3,
+    ).encode()
+    proof = credential.sign(
+        proof.request.model_copy(update={"body": InputBody.from_bytes(body)})
+    )
+    if address == "tampered":
+        body = body.replace(b"text-a", b"text-b")
+    configuration = ContinuationConfiguration(
+        storage=CheckpointPolicy(
+            retention_seconds=300,
+            maximum_records=32,
+            maximum_storage_bytes=64 * 1024 * 1024,
+        )
+    )
+    async with native_child(
+        store.credentials.root, continuation=configuration
+    ) as child:
+        call_id = await child.invoke(7, _OBJECT.validate_json(proof.model_dump_json()))
+        reader, writer = await child.stream(call_id)
+        for sequence, kind in enumerate(("started", "chunk", "completed")):
+            frame: dict[str, JsonValue] = {
+                "call_id": call_id,
+                "direction": "caller_to_provider",
+                "sequence": sequence,
+                "kind": kind,
+            }
+            media = b""
+            if kind == "chunk":
+                frame.update(
+                    payload={}, media={"kind": "inline", "media_type": BODY_MEDIA_TYPE}
+                )
+                media = body
+            writer.write(NATIVE.encode_transport_v2_packet(json.dumps(frame), media))
+            await writer.drain()
+        frames = await drain(child, reader)
+        event = next(
+            ContinuationEvent.model_validate_json(
+                json.dumps(
+                    unwrap_payload(
+                        child.bindings[7],
+                        _OBJECT.validate_python(frame["payload"], strict=True),
+                    )
+                )
+            )
+            for frame in reversed(frames)
+            if frame["kind"] == "chunk"
+        )
+        assert event.event.kind == ("completed" if address == "exact" else "failed")
+        assert (await read(child, 2))["requests_started"] == (
+            1 if address == "exact" else 0
+        )
+
+
 async def test_populated_legacy_native_and_rollback_share_protected_history(
     tmp_path: Path,
 ) -> None:

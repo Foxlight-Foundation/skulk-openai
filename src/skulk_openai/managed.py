@@ -402,12 +402,18 @@ class ApplicationServices:
 
 @asynccontextmanager
 async def open_application(
-    target_node: str, configuration: Configuration, *, mock: bool
+    target_node: str,
+    configuration: Configuration,
+    *,
+    mock: bool,
+    chat_model_address_matches: Callable[[str, str], bool] | None = None,
 ) -> AsyncGenerator[ApplicationServices]:
     """Own provider/account/UI resources independently of the managed wire cohort.
 
     ``target_node`` is the explicit application-level legacy proof identity. It
     must never be inferred by shortening or relabelling a native host identity.
+    Native hosting may supply its exact chat-address matcher; it never replaces
+    application proof, account or model authorization, or rewrites signed bytes.
     No provider state or implementation moves into the host or SDK.
     """
     with ExitStack() as resources:
@@ -502,6 +508,7 @@ async def open_application(
                             provider,
                             profile=profiles.get(proof.request.target.model),
                             chat_callable_id=published[6].id,
+                            model_address_matches=chat_model_address_matches,
                         )
                         async with aclosing(
                             service.generate_streamed(

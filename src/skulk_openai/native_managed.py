@@ -7,6 +7,7 @@ required. Provider sessions, UI, policy and checkpoint custody stay in this app.
 import argparse
 import asyncio
 import json
+import re
 import sqlite3
 import sys
 from collections.abc import AsyncGenerator, AsyncIterator
@@ -104,7 +105,32 @@ def create_app(*, mock: bool = False) -> CapabilityApp:
     if version("skulk-capability-kernel") != "0.7.0rc4":
         raise ValueError("native Integrator requires its explicit stream cohort")
     bindings = native_bindings(mock=mock)
+    chat = next(
+        binding
+        for binding in bindings
+        if (binding.legacy.annotations or {}).get("inference.contract")
+        == "chat.completions@0.2.0"
+    )
+    chat_target = (
+        _TEXT.validate_python(chat.declaration["id"], strict=True)
+        + "@"
+        + chat.legacy.version
+    )
     services: ApplicationServices | None = None
+
+    def matches_model_address(address: str, model: str) -> bool:
+        # Core owns the installation namespace and independently pins actual
+        # native custody. The app validates its declared chat target and signed
+        # model slug; the installation label never confers account authority.
+        parts = address.split("/")
+        return (
+            len(parts) == 4
+            and parts[0] == "native"
+            and 1 <= len(parts[1]) <= 128
+            and re.fullmatch(r"[A-Za-z0-9_.:-]+", parts[1]) is not None
+            and parts[2] == chat_target
+            and parts[3] == model
+        )
 
     @asynccontextmanager
     async def setup(startup: ApplicationStartup) -> AsyncGenerator[None]:
@@ -135,7 +161,10 @@ def create_app(*, mock: bool = False) -> CapabilityApp:
         ):
             raise ValueError("native application adoption receipt differs")
         async with open_application(
-            configuration.legacy_target_node, configuration.application, mock=mock
+            configuration.legacy_target_node,
+            configuration.application,
+            mock=mock,
+            chat_model_address_matches=matches_model_address,
         ) as active:
             services = active
             try:

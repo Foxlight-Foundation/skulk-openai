@@ -67,6 +67,14 @@ binary caller media. Large text and function-argument deltas are fragmented
 without truncation. A completed transport terminal establishes transport cleanup;
 clients must also interpret the inner chat/continuation outcome.
 
+Native HTTP continuation accepts its declared native chat ID/version and the
+signed model slug in the `model` address. Core independently owns and verifies
+the installation routing component; that label confers no account authority.
+The capability verifies the original signed body bytes before interpreting the
+transport selector. It never substitutes a legacy address or re-encodes the
+body to make a signature pass. Legacy hosting retains its exact legacy-address
+validation; SDK callers may omit the HTTP `model` envelope as before.
+
 This candidate changes native descriptor revisions. Existing experimental
 installations must explicitly enroll the new exact declarations under the
 normal offline snapshot procedure. There is no identity conversion or automatic
