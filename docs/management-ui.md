@@ -146,6 +146,13 @@ Additional owner-session/Origin/CSRF protected routes:
 | `POST /api/notice` | `{}` | Persists dismissal of the non-binding first-use ChatGPT plan notice. |
 | `GET /assets/skulk.svg`, font assets | None | Packaged mark and self-hosted fonts; no third-party browser fetch. |
 
+An enabled settings save derives its account fence from the currently selected,
+authorized account, including when only registered continuation clients are in
+use and no gateway key is configured. Saving identical policy preserves its
+protected continuation receipts. A policy change still invalidates checkpoints;
+a disconnected account cannot be approved by an enabled save. The browser cannot
+supply the hidden account binding.
+
 `GET /api/state` also exposes editable settings without account binding and cached
 model names, explicitly distinguishing stale choices from currently usable ones.
 The UI links to ChatGPT usage settings and current preview limitations rather

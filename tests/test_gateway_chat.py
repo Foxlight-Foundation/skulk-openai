@@ -143,10 +143,15 @@ async def test_concurrent_replay_has_one_admission_and_account_reconnect_fences_
     assert [e.error async for e in service.generate(proof)] == ["policy_denied"]
 
 
+@pytest.mark.parametrize("gateway", [False, True])
 async def test_settings_roundtrip_does_not_start_requests_or_expose_binding(
     tmp_path: Path,
+    gateway: bool,
 ) -> None:
     capability, service, settings, _, _, _, _ = await configured(tmp_path)
+    if not gateway:
+        settings = settings.model_copy(update={"gateway_public_key": None})
+        capability.settings.save(settings)
     async with browser(ManagementServer(capability)) as client:
         response = await client.post(
             "/api/settings",
