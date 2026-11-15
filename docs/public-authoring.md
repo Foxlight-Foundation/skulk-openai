@@ -96,7 +96,16 @@ adds native signing and candidate wheelhouse support. It does not replace the
 legacy source-build recipe above. Read the [native publisher contract and inputs](https://github.com/Foxlight-Foundation/skulk-capability-sdk/blob/4361305db103fea95e86daf905cc8de3d90dc50f/docs/native-publishing.md)
 before building this branch's native entrypoint.
 
-The SDK and tools wheel identities are recorded in that release's
+This reference's `capability-native.toml` pins **SDK0.5.10rc1**, so its native
+publisher environment must install that exact [public SDK wheel](https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.10-rc.1/skulk_capability_sdk-0.5.10rc1-py3-none-any.whl),
+with SHA256 `db8341895b1eb7f6dffebf5a3669b80d0125cd5e8c2e19cf1c951fa22ff849e9`,
+when using tools0.2.0rc1 and native0.7.0rc4. SDK0.5.11rc1 in the newer release
+is a separate candidate; choosing it does not change this reference's declared
+runtime requirements. The builder checks the installed author dependency closure
+and refuses a version mismatch. Preserve the exact SDK0.5.10rc1 runtime wheelhouse
+input when reproducing this application.
+
+The newer SDK and tools wheel identities are recorded in that release's
 `author-candidates.json` and `SHA256SUMS`. Acquire them anonymously, separately
 from the runtime owner, and select the published native0.7.0rc4 binary for the
 publishing host. `capability-build --inference-runtime` uses the actual compiled
