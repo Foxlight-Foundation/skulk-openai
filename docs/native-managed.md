@@ -125,11 +125,25 @@ reverified and its authority is quarantined, protecting older readers that do no
 understand the pending marker. Publication refuses an existing journal.
 Existing roots are never overwritten and uncertain submissions are never replayed.
 
+## Native candidate publication
+
+The [public authoring guide](public-authoring.md#explicit-native-candidate-tools)
+identifies the separate SDK/tools candidate and its explicit build path. The
+native declaration, runtime owner and Core remain independently selected.
+Qualified signed macOS installation with synthetic populated state now covers19
+checks through the normal installer and owner: exact caller enrollment, native
+continuation, management UI/settings, withdrawal, current-journal rollback and
+quarantined restore. The owner/Core host layer has separate three-platform
+qualification. These scopes do not establish Linux Integrator installation,
+real-account adoption or native model discovery in the unified Chat/API adapter.
+
 ## Management surface
 
 The same capability-owned settings UI runs under native setup/cleanup. Frozen
 native health accepts HTTPS links or private proxy ports; the local HTTP UI
 therefore declares a proxied surface and reports its actual private port. It
-does not publish an HTTP URL under a false HTTPS scheme. Host UI opening and
-unified-chat discovery require their own native adoption qualification before
+does not publish an HTTP URL under a false HTTPS scheme. A qualified native
+owner can bind that private listener to an isolated loopback management origin;
+Core exposes its ready Open action. Browser settings and CSRF are handled by
+the capability. Unified-chat discovery requires its own native adapter before
 replacing an existing installed integration.
