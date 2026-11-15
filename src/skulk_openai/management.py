@@ -486,7 +486,11 @@ class ManagementServer:
             settings = IntegrationSettings.model_validate_json(json.dumps(value))
             previous = await asyncio.to_thread(self.capability.settings.read)
             status = await self.sessions.status()
-            if settings.gateway_public_key is not None:
+            # Registered continuation clients also rely on this account fence.
+            # Rebuild it from the selected account on every enabled save, even
+            # when no legacy gateway key is configured. The browser never owns
+            # this hidden field; dropping it would revoke an unchanged policy.
+            if settings.gateway_public_key is not None or settings.inference_enabled:
                 if (
                     status.state == "authorized"
                     and status.registration_id is not None
@@ -501,7 +505,7 @@ class ManagementServer:
                     # fence does not approve a new account or gateway key.
                     binding = previous.account_binding
                 else:
-                    raise ValueError("connect account before gateway delegation")
+                    raise ValueError("connect account before enabling delegation")
                 settings = settings.model_copy(update={"account_binding": binding})
             catalog = await asyncio.to_thread(self.capability.cache.read)
             revoking = not settings.inference_enabled or (
