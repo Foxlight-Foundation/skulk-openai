@@ -2,7 +2,7 @@
 
 import asyncio
 import sqlite3
-from collections.abc import AsyncGenerator, AsyncIterable
+from collections.abc import AsyncGenerator, AsyncIterable, Callable
 from contextlib import aclosing
 
 from pydantic import JsonValue
@@ -44,12 +44,14 @@ class ContinuationService:
         *,
         profile: CompactionProfile | None = None,
         chat_callable_id: str | None = None,
+        model_address_matches: Callable[[str, str], bool] | None = None,
     ) -> None:
         """Bind capability-owned effects; constructing the adapter performs no I/O."""
         self.worker = worker
         self.provider = provider
         self.profile = profile
         self.chat_callable_id = chat_callable_id
+        self.model_address_matches = model_address_matches
 
     async def generate_streamed(
         self, proof: ContinuationProof, chunks: AsyncIterable[bytes]
@@ -88,14 +90,19 @@ class ContinuationService:
             settings = await asyncio.to_thread(
                 SettingsStore(self.worker.store.credentials).read
             )
-            request = ChatRequest.from_continuation(
-                raw,
-                model_address=(
-                    f"capability/{self.chat_callable_id}/{proof.request.target.model}"
-                    if self.chat_callable_id is not None
-                    else None
-                ),
+            matcher = self.model_address_matches
+            address: str | Callable[[str], bool] | None = (
+                f"capability/{self.chat_callable_id}/{proof.request.target.model}"
+                if self.chat_callable_id is not None
+                else None
             )
+            if matcher is not None:
+
+                def matches_address(value: str) -> bool:
+                    return matcher(value, proof.request.target.model)
+
+                address = matches_address
+            request = ChatRequest.from_continuation(raw, model_address=address)
             body = request.responses(
                 settings, skip_messages=lease.record.metadata.state.history.count
             )

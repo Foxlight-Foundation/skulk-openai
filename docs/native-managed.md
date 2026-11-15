@@ -37,13 +37,19 @@ A native request uses this explicit envelope:
 
 ```json
 {
-  "contract": "openai.legacy-envelope@1.0.0",
-  "legacy_revision": "<original application revision>",
+  "contract": "openai.application@1.0.0",
+  "revision": "<original application revision>",
   "payload": {}
 }
 ```
 
-Signed descriptor annotations identify the legacy ID, version and revision.
+Signed descriptor annotations select `skulk.application-envelope@1.0.0` with
+`inference.envelope`. `inference.envelope.contract` names the opaque envelope
+contract. `inference.application.id`, `.version` and `.revision` identify the
+independent application proof destination. The `inference.catalog`,
+`inference.contract`, `inference.authorization` and `inference.chat` annotations
+retain the generic catalog/chat/continuation relationships. Core can interpret
+these declarations without importing the provider or recognizing its name.
 The envelope's payload is validated by the unchanged strict application models.
 This preserves their Unicode identifier rules, which cannot be re-exported as
 portable/2 regular expressions. The envelope is a distinct native contract;
@@ -60,6 +66,21 @@ JSON control values obey portable/2's 64 KiB bound. Large request bodies use
 binary caller media. Large text and function-argument deltas are fragmented
 without truncation. A completed transport terminal establishes transport cleanup;
 clients must also interpret the inner chat/continuation outcome.
+
+Native HTTP continuation accepts its declared native chat ID/version and the
+signed model slug in the `model` address. Core independently owns and verifies
+the installation routing component; that label confers no account authority.
+The capability verifies the original signed body bytes before interpreting the
+transport selector. It never substitutes a legacy address or re-encodes the
+body to make a signature pass. Legacy hosting retains its exact legacy-address
+validation; SDK callers may omit the HTTP `model` envelope as before.
+
+This candidate changes native descriptor revisions. Existing experimental
+installations must explicitly enroll the new exact declarations under the
+normal offline snapshot procedure. There is no identity conversion or automatic
+grant advancement. No customer compatibility migration is required for this
+development candidate; preserve any connected development account and its
+useful state when cutting it over.
 
 ## Protected state adoption
 

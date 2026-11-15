@@ -17,6 +17,7 @@ from .managed import descriptors
 from .state_transfer import AdoptionBinding
 
 _OBJECT = TypeAdapter(dict[str, JsonValue])
+APPLICATION_ENVELOPE = "openai.application@1.0.0"
 
 
 class NativeRecord(Protocol):
@@ -88,11 +89,11 @@ def envelope_schema(revision: str) -> dict[str, JsonValue]:
     return {
         "type": "object",
         "properties": {
-            "contract": {"const": "openai.legacy-envelope@1.0.0"},
-            "legacy_revision": {"const": revision},
+            "contract": {"const": APPLICATION_ENVELOPE},
+            "revision": {"const": revision},
             "payload": {"type": "object"},
         },
-        "required": ["contract", "legacy_revision", "payload"],
+        "required": ["contract", "revision", "payload"],
         "additionalProperties": False,
     }
 
@@ -127,10 +128,12 @@ def native_bindings(*, mock: bool = False) -> tuple[NativeBinding, ...]:
             if legacy.output_chunk_schema is not None
             else None,
             "annotations": {
-                "inference.contract": "openai.legacy-envelope@1.0.0",
-                "openai.legacy-id": legacy.id,
-                "openai.legacy-version": legacy.version,
-                "openai.legacy-revision": legacy.revision,
+                **(legacy.annotations or {}),
+                "inference.envelope": "skulk.application-envelope@1.0.0",
+                "inference.envelope.contract": APPLICATION_ENVELOPE,
+                "inference.application.id": legacy.id,
+                "inference.application.version": legacy.version,
+                "inference.application.revision": legacy.revision,
             },
         }
         revision = kernel.portable_v2_contract_digest(
@@ -161,8 +164,8 @@ def wrap_payload(
 ) -> dict[str, JsonValue]:
     """Return the declared native envelope without modifying the legacy payload."""
     return {
-        "contract": "openai.legacy-envelope@1.0.0",
-        "legacy_revision": binding.legacy.revision,
+        "contract": APPLICATION_ENVELOPE,
+        "revision": binding.legacy.revision,
         "payload": payload,
     }
 
@@ -172,9 +175,9 @@ def unwrap_payload(
 ) -> dict[str, JsonValue]:
     """Refuse cross-contract aliases before entering strict legacy domain behavior."""
     if (
-        set(payload) != {"contract", "legacy_revision", "payload"}
-        or payload["contract"] != "openai.legacy-envelope@1.0.0"
-        or payload["legacy_revision"] != binding.legacy.revision
+        set(payload) != {"contract", "revision", "payload"}
+        or payload["contract"] != APPLICATION_ENVELOPE
+        or payload["revision"] != binding.legacy.revision
     ):
         raise ValueError("native application contract binding differs")
     return _OBJECT.validate_python(payload["payload"], strict=True)

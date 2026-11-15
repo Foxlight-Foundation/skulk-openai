@@ -1,6 +1,7 @@
 """Translate supported Chat Completions inputs into plan-usage Responses input."""
 
 import json
+from collections.abc import Callable
 from typing import Literal
 
 from pydantic import Field, JsonValue, TypeAdapter
@@ -31,17 +32,25 @@ class ChatRequest(FrozenContract):
 
     @classmethod
     def from_continuation(
-        cls, raw: bytes, *, model_address: str | None = None
+        cls,
+        raw: bytes,
+        *,
+        model_address: str | Callable[[str], bool] | None = None,
     ) -> "ChatRequest":
         """Parse already-authenticated bytes and validate an optional HTTP envelope.
 
         The checkpoint worker verifies exact bytes and duplicate-free public
-        history first. Only the exact advertised model field may be removed;
+        history first. Only a transport-validated model field may be removed;
         SDK clients can continue to send the original unwrapped request shape.
         """
         value = TypeAdapter(dict[str, JsonValue]).validate_json(raw)
         if "model" in value:
-            if model_address is None or value.pop("model") != model_address:
+            address = value.pop("model")
+            if not isinstance(address, str) or (
+                not model_address(address)
+                if callable(model_address)
+                else address != model_address
+            ):
                 raise ValueError("HTTP model does not match continuation target")
         return cls.model_validate_json(
             json.dumps(value, ensure_ascii=False, allow_nan=False)
