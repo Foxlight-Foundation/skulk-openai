@@ -13,9 +13,9 @@ from .credentials import CredentialStore
 class IntegrationSettings(FrozenContract):
     """Editable integration controls, enforced independently of the gateway."""
 
-    inference_enabled: bool = False
-    processing: Literal["local_only", "allow_openai"] = "local_only"
-    usage: Literal["included_only", "app_settings"] = "included_only"
+    inference_enabled: bool = True
+    processing: Literal["local_only", "allow_openai"] = "allow_openai"
+    usage: Literal["included_only", "app_settings"] = "app_settings"
     models: tuple[Identifier, ...] = Field(default=(), max_length=128)
     default_model: Identifier | None = None
     instructions: str = Field(default="", max_length=4096)
@@ -68,7 +68,7 @@ class SettingsStore:
         self.store = store
 
     def read(self) -> IntegrationSettings:
-        """Return fail-closed defaults until the owner saves integration policy."""
+        """Return ready defaults without model or caller authority until saved."""
         with self.store.transaction() as connection:
             row = connection.execute(
                 "SELECT value FROM metadata WHERE key='integration_settings'"

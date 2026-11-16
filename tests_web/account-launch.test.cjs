@@ -21,6 +21,7 @@ async function clickConnect(launchUrl, connection = "disconnected") {
     connection,
     cached_models: [],
     models: [],
+    catalog_fresh: true,
     settings: { models: [], plan_notice_seen: true },
   };
   function element(id) {
@@ -28,7 +29,9 @@ async function clickConnect(launchUrl, connection = "disconnected") {
       elements.set(id, {
         value: "",
         listeners: new Map(),
-        addEventListener(name, callback) { this.listeners.set(name, callback); },
+        addEventListener(name, callback) {
+          this.listeners.set(name, callback);
+        },
         replaceChildren() {},
         append() {},
       });
@@ -53,9 +56,11 @@ async function clickConnect(launchUrl, connection = "disconnected") {
     setInterval() {},
     async fetch(path, options) {
       requests.push({ path, options });
+      if (path === "/api/connect") state.connecting = true;
       return {
         ok: true,
-        json: async () => path === "/api/connect" ? { launch_url: launchUrl } : state,
+        json: async () =>
+          path === "/api/connect" ? { launch_url: launchUrl } : state,
       };
     },
   });
@@ -69,7 +74,9 @@ for (const connection of ["disconnected", "authorized", "identity_only"]) {
     const url = `http://127.0.0.1:49152${launchPath}`;
     const result = await clickConnect(url, connection);
     assert.deepEqual(result.opened, [[url, "_blank", "noopener,noreferrer"]]);
-    const request = result.requests.find((item) => item.path === "/api/connect");
+    const request = result.requests.find(
+      (item) => item.path === "/api/connect",
+    );
     assert.equal(request.options.headers["X-CSRF-Token"], "synthetic-csrf");
     assert.deepEqual(JSON.parse(request.options.body), {
       request_plan_consent: connection === "identity_only",

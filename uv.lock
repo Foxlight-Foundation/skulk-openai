@@ -1545,7 +1545,7 @@ provides-extras = ["native-credentials"]
 
 [[package]]
 name = "skulk-openai"
-version = "0.6.0"
+version = "0.6.1"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },

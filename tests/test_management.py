@@ -68,6 +68,43 @@ def payload(revision: str) -> dict[str, JsonValue]:
     }
 
 
+async def test_fresh_defaults_can_be_saved_without_creating_account_authority(
+    tmp_path: Path,
+) -> None:
+    """Saving disconnected defaults must not grant a gateway or account access."""
+    sessions, _, clock = setup(tmp_path)
+    capability = InferenceCapability(
+        ProviderClient(
+            sessions,
+            transport=httpx.MockTransport(lambda _: httpx.Response(503)),
+            clock=clock,
+        ),
+        target_node="local",
+        callable_id="test",
+        descriptor_revision="a" * 16,
+        enabled=True,
+        clock=clock,
+    )
+    async with browser(ManagementServer(capability)) as client:
+        state = (await client.get("/api/state")).json()
+        settings = state["settings"]
+        assert settings["inference_enabled"]
+        assert settings["processing"] == "allow_openai"
+        assert settings["usage"] == "app_settings"
+        assert settings["models"] == []
+        settings["instructions"] = "Prepared before sign-in."
+        response = await client.post("/api/settings", json=settings)
+        assert response.status_code == 200
+        assert response.json()["connection"] == "disconnected"
+        assert capability.settings.read().account_binding is None
+        assert capability.settings.read().gateway_public_key is None
+        response = await client.post(
+            "/api/settings", json={**settings, "gateway_public_key": "a" * 64}
+        )
+        assert response.status_code == 400
+        assert capability.settings.read().gateway_public_key is None
+
+
 async def test_assets_and_cached_status_do_not_contact_provider(tmp_path: Path) -> None:
     capability, _, _, api, _ = await prepared(tmp_path)
     async with browser(ManagementServer(capability)) as client:

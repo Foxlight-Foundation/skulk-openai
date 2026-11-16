@@ -1,6 +1,6 @@
 # Native runtime acquisition preview
 
-This is an authoring input for the `0.6.0` Integrator preview. Operators install
+This is an authoring input for the `0.6.1` Integrator preview. Operators install
 a separately signed release through Skulk; see [first setup](native-setup.md).
 Downloading wheels grants no publisher trust, account access or caller authority.
 

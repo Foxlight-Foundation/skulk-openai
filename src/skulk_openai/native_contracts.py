@@ -209,7 +209,7 @@ def build_native_manifest(
                     },
                     "inference_enabled": {
                         "type": "boolean",
-                        "default": False,
+                        "default": True,
                         "description": "Allow inference after account setup.",
                     },
                 },
@@ -230,7 +230,7 @@ def build_native_manifest(
         "bundle_id": "reference.openai.native.mock"
         if mock
         else "reference.openai.native",
-        "bundle_version": "0.6.0",
+        "bundle_version": "0.6.1",
         "title": "Skulk OpenAI Integrator",
         "skulk_requires": ">=2.0.3,<3",
         "executable": executable,

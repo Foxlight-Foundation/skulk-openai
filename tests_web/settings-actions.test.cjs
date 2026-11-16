@@ -19,7 +19,11 @@ async function settingsPage(saved = {}) {
     connection: "authorized",
     cached_models: [],
     models: [],
+    catalog_fresh: true,
     settings: {
+      inference_enabled: true,
+      processing: "allow_openai",
+      usage: "app_settings",
       models: [],
       plan_notice_seen: true,
       allow_images: true,
@@ -109,6 +113,32 @@ test("no local caps are sent until an owner opts in", async () => {
   assert.equal(writes[0].maximum_requests_per_hour, null);
   assert.equal(writes[0].maximum_output_characters, null);
   assert.equal(writes[0].allow_images, true);
+});
+
+test("fresh controls follow ChatGPT settings and are ready for requests", async () => {
+  const { element, writes } = await settingsPage();
+  assert.equal(element("paused").checked, false);
+  assert.equal(element("usage").value, "app_settings");
+  await element("save").listeners.get("click")();
+  assert.equal(writes[0].inference_enabled, true);
+  assert.equal(writes[0].processing, "allow_openai");
+  assert.equal(writes[0].usage, "app_settings");
+});
+
+test("saved pauses survive unrelated edits and resume explicitly", async () => {
+  const { element, writes } = await settingsPage({
+    inference_enabled: true,
+    processing: "local_only",
+  });
+  assert.equal(element("paused").checked, true);
+  await element("save").listeners.get("click")();
+  assert.equal(writes[0].inference_enabled, true);
+  assert.equal(writes[0].processing, "local_only");
+  element("paused").checked = false;
+  element("paused").listeners.get("change")();
+  await element("save").listeners.get("click")();
+  assert.equal(writes[1].inference_enabled, true);
+  assert.equal(writes[1].processing, "allow_openai");
 });
 
 test("existing caps can be disabled, discarded, and independently re-enabled", async () => {

@@ -3,6 +3,10 @@ const $ = (id) => document.getElementById(id);
 let current = null;
 let dirty = false;
 let performing = false;
+let pauseChanged = false;
+let waitingForConsent = false;
+let autoCatalogPending = false;
+let nextAutoCatalogAttempt = 0;
 let draftModels = new Set();
 let testController = null;
 const messages = {
@@ -60,8 +64,13 @@ function changed() {
 }
 function settings() {
   return {
-    inference_enabled: $("enabled").checked,
-    processing: $("processing").value,
+    inference_enabled: pauseChanged
+      ? !$("paused").checked
+      : current.settings.inference_enabled,
+    processing:
+      pauseChanged && !$("paused").checked
+        ? "allow_openai"
+        : current.settings.processing,
     usage: $("usage").value,
     models: [...draftModels],
     default_model: $("default-model").value || null,
@@ -81,8 +90,8 @@ function settings() {
   };
 }
 function populate(s) {
-  $("enabled").checked = s.inference_enabled;
-  $("processing").value = s.processing;
+  $("paused").checked = !s.inference_enabled || s.processing !== "allow_openai";
+  pauseChanged = false;
   $("usage").value = s.usage;
   $("instructions").value = s.instructions;
   $("reasoning").value = s.reasoning_effort || "";
@@ -164,6 +173,15 @@ function update(state) {
   const previousCatalog = JSON.stringify(current?.cached_models);
   current = state;
   const connected = state.connection === "authorized";
+  if (waitingForConsent && !state.connecting) {
+    waitingForConsent = false;
+    notify(
+      messages[state.notice] ||
+        (connected
+          ? messages.connected
+          : "Sign-in ended. You can try connecting again."),
+    );
+  }
   const renewable = connected || state.connection === "expired";
   const labels = {
     authorized: "Connected",
@@ -201,10 +219,10 @@ function update(state) {
   $("disconnect").hidden = !renewable && state.connection !== "identity_only";
   $("disconnect").disabled = performing;
   for (const button of document.querySelectorAll(".refresh"))
-    button.disabled = !renewable || performing;
+    button.disabled = !renewable || performing || autoCatalogPending;
   $("catalog-status").textContent = state.catalog_fresh
     ? "Account catalog is current. Server ordering is preserved."
-    : "Catalog is stale or missing. Refresh before sending a request.";
+    : "Models refresh automatically while this page is open.";
   if (!dirty) populate(state.settings);
   else if (previousCatalog !== JSON.stringify(state.cached_models))
     renderModels();
@@ -257,7 +275,30 @@ async function refresh() {
   const response = await fetch("/api/state", { cache: "no-store" });
   if (!response.ok)
     throw new Error("Refresh this page to restore your session.");
-  update(await response.json());
+  const state = await response.json();
+  update(state);
+  if (
+    state.connection === "authorized" &&
+    !state.connecting &&
+    !state.catalog_fresh &&
+    !autoCatalogPending &&
+    Date.now() >= nextAutoCatalogAttempt
+  ) {
+    // Bound metadata refreshes, including failed ones, without changing the
+    // account, the owner's model allowlist or any in-progress settings draft.
+    autoCatalogPending = true;
+    nextAutoCatalogAttempt = Date.now() + 60000;
+    try {
+      update(await post("/api/models"));
+    } catch {
+      notify(
+        "Models could not be loaded. Check your connection or use Refresh catalog to retry.",
+      );
+    } finally {
+      autoCatalogPending = false;
+      update(current);
+    }
+  }
 }
 async function post(path, value = {}) {
   const response = await fetch(path, {
@@ -293,6 +334,10 @@ for (const input of document.querySelectorAll(
   if (input.closest("#client-enrollment")) continue;
   input.addEventListener("input", changed);
 }
+$("paused").addEventListener("change", () => {
+  pauseChanged = true;
+  changed();
+});
 $("discard").addEventListener("click", () => {
   populate(current.settings);
   notify("Changes discarded.");
@@ -309,6 +354,7 @@ $("save").addEventListener("click", () =>
 );
 $("connect").addEventListener("click", () =>
   action(async () => {
+    waitingForConsent = false;
     const next = await post("/api/connect", {
       request_plan_consent: current.connection === "identity_only",
     });
@@ -328,6 +374,7 @@ $("connect").addEventListener("click", () =>
     )
       throw new Error("Unexpected authorization destination.");
     window.open(url.href, "_blank", "noopener,noreferrer");
+    waitingForConsent = true;
     notify(
       "Complete sign-in in the OpenAI tab. This page will update when the connection is saved.",
     );

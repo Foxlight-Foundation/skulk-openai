@@ -143,7 +143,7 @@ class ContinuationConfiguration(FrozenContract):
 class Configuration(FrozenContract):
     """Owner settings contain no token, grant key, callback or provider URL."""
 
-    inference_enabled: bool = False
+    inference_enabled: bool = True
     state_directory: str | None = Field(default=None, min_length=1, max_length=4096)
     continuation: ContinuationConfiguration | None = Field(
         default=None,

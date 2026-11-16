@@ -1,6 +1,6 @@
 # Setting up the native Integrator preview
 
-This guide covers the `0.6.0` preview native candidate. Use the compatible Skulk
+This guide covers the `0.6.1` preview native candidate. Use the compatible Skulk
 build and signed release source identified by that release's qualification
 notes. Source availability, a signed package, Store publication and stable
 Skulk support are separate facts; the version number `2.0.3` alone does not
@@ -19,7 +19,7 @@ identify a native-capable Skulk build.
    {
      "application": {
        "state_directory": "~/.local/state/skulk-openai-native",
-       "inference_enabled": false
+       "inference_enabled": true
      }
    }
    ```
@@ -28,6 +28,7 @@ identify a native-capable Skulk build.
    a disconnected journal bound to the actual installed child. It creates no
    provider account, caller grant or continuation key. Keep this directory
    across restarts and application updates.
+
 3. Enable the application and open its management surface. **Connection**
    should show **Disconnected**, with settings available. A new installation
    needs no legacy node identifier, snapshot or migration receipt.
@@ -35,15 +36,15 @@ identify a native-capable Skulk build.
    account requires your explicit action and the provider's consent process.
    Provider availability and usage follow that connected account and its app
    settings.
-5. Configure the integration's model allowlist and request defaults in its
-   management UI. On **Connection**, enable inference and explicitly allow
-   external processing when ready. Select **Follow ChatGPT app settings** to
-   permit requests under that account's settings; **Included usage only** stays
-   unavailable until included usage can be verified. Save these choices. Saved
-   integration settings
-   take precedence over the host configuration's initial `inference_enabled`
-   fallback. The connected account, saved integration policy and Skulk's caller
-   policy must each permit the request.
+5. Models load automatically after successful consent. Select the models that
+   Skulk may use and save the allowlist and request defaults. Fresh installations
+   enable inference, permit OpenAI processing and **Follow ChatGPT app settings**
+   by default. **Connection → Advanced controls → Pause requests** pauses
+   generation while keeping the account connected. Previously saved pauses and
+   usage restrictions remain effective; resume or change them explicitly.
+   Saved integration settings take precedence over the host configuration's
+   initial `inference_enabled` fallback. Account, model and Skulk caller authority
+   are independently required. Selecting models does not approve a gateway.
 6. Approve the compatible Skulk gateway and its local-owner inference access.
    Enabled, authorized models then appear in Skulk Chat and its unified model
    catalog. Use the same unified API for external clients, with a Skulk client
