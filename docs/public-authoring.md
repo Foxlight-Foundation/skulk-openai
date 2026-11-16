@@ -91,42 +91,32 @@ the archive does not connect an account.
 
 ## Explicit native candidate tools
 
-The separately selected [SDK0.5.11rc1 / tools0.2.0rc1 prerelease](https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/tag/v0.5.11-rc.1)
-adds native signing and candidate wheelhouse support. It does not replace the
-legacy source-build recipe above. Read the [native publisher contract and inputs](https://github.com/Foxlight-Foundation/skulk-capability-sdk/blob/4361305db103fea95e86daf905cc8de3d90dc50f/docs/native-publishing.md)
-before building this branch's native entrypoint.
+The [SDK0.5.12rc1 / tools0.2.0rc2 prerelease](https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/tag/v0.5.12-rc.1)
+provides explicit native runtime5/catalog4 authoring and acquisition. Select it
+separately from the legacy recipe above. Read the [native publishing contract](https://github.com/Foxlight-Foundation/skulk-capability-sdk/blob/316bac7a41381d326874b8caee2f71406595ac01/docs/native-publishing.md)
+and the [versioned native runtime acquisition guide](native-runtime.md).
 
-This reference's `capability-native.toml` pins **SDK0.5.10rc1**, so its native
-publisher environment must install that exact [public SDK wheel](https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.10-rc.1/skulk_capability_sdk-0.5.10rc1-py3-none-any.whl),
-with SHA256 `db8341895b1eb7f6dffebf5a3669b80d0125cd5e8c2e19cf1c951fa22ff849e9`,
-when using tools0.2.0rc1 and native0.7.0rc4. SDK0.5.11rc1 in the newer release
-is a separate candidate; choosing it does not change this reference's declared
-runtime requirements. The builder checks the installed author dependency closure
-and refuses a version mismatch. Preserve the exact SDK0.5.10rc1 runtime wheelhouse
-input when reproducing this application.
+This reference's `capability-native.toml` requires public SDK `0.5.10rc1`,
+whose wheel SHA256 is
+`db8341895b1eb7f6dffebf5a3669b80d0125cd5e8c2e19cf1c951fa22ff849e9`.
+That application requirement remains distinct from the SDK/tools workspace's
+version. The native runtime recipes fix owner `0.18.0rc3`, SDK `0.5.10rc1`
+and kernel `0.7.0rc4`, including exact transitive wheels for each platform.
+Keep author tools, application runtime and publisher trust separate.
 
-The newer SDK and tools wheel identities are recorded in that release's
-`author-candidates.json` and `SHA256SUMS`. Acquire them anonymously, separately
-from the runtime owner, and select the published native0.7.0rc4 binary for the
-publishing host. `capability-build --inference-runtime` uses the actual compiled
-managed/2 declaration. `capability-wheelhouse --native-candidate` independently
-permits exact locked prereleases and the native Linux floor; neither flag grants
-execution, an account connection or publisher trust.
+Use `capability-native.toml` and
+`skulk_openai.native_contracts.build_native_manifest`.
+`capability-build --inference-runtime` selects the compiled native declaration;
+`capability-wheelhouse --native-candidate` admits the explicitly pinned
+prereleases and native Linux floor. Neither grants execution or an account.
+For an author experiment, use the distinct synthetic bundle, a disposable key
+and a new explicit state directory. Preserve every existing account store.
 
-For this reference, use `capability-native.toml` and
-`skulk_openai.native_contracts.build_native_manifest`. Keep `mock=True` for a new
-synthetic candidate and use an explicit dedicated state directory. Supply an
-independently qualified native owner wheelhouse, the measured Core source and
-a disposable signing key outside the bundle. The legacy publisher group and
-ordinary runtime recipe do not provide that native owner. Native catalog
-publication and installed runtime delivery are separate from a successful build.
-
-The tools' installed public CLI has built the real reference from a frozen
-30-wheel closure, reproducing the qualified owner-wheel hash. The signed result
-passed19 synthetic macOS installation checks, including settings UI, continuation,
-withdrawal and rollback. This establishes that author path for those exact
-inputs. It does not establish anonymous acquisition of a complete native owner
-recipe, Linux installation of this application, or a real-account migration.
+The released public tools independently build the real reference, verify signed
+native metadata and acquire the complete runtime without private Git access.
+Account-free installed qualification covers macOS ARM64 and Linux glibc
+x86_64/ARM64. Production Store trust, a compatible stable Skulk release and
+account-backed native inference remain separate gates.
 
 ## Sign, publish and install
 
