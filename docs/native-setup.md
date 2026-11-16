@@ -1,6 +1,6 @@
 # Setting up the native Integrator preview
 
-This guide covers the `0.6.1` preview native candidate. Use the compatible Skulk
+This guide covers the `0.6.2` preview native candidate. Use the compatible Skulk
 build and signed release source identified by that release's qualification
 notes. Source availability, a signed package, Store publication and stable
 Skulk support are separate facts; the version number `2.0.3` alone does not
@@ -45,10 +45,21 @@ identify a native-capable Skulk build.
    Saved integration settings take precedence over the host configuration's
    initial `inference_enabled` fallback. Account, model and Skulk caller authority
    are independently required. Selecting models does not approve a gateway.
-6. Approve the compatible Skulk gateway and its local-owner inference access.
-   Enabled, authorized models then appear in Skulk Chat and its unified model
-   catalog. Use the same unified API for external clients, with a Skulk client
-   credential and the model access you explicitly grant that client.
+6. In the Integrator's **Skulk access**, find the compatible Skulk gateway and
+   save its public key approval. If Skulk uses a different local API port, enter
+   that port before **Find gateway**. This approval lets the gateway submit
+   requests under the saved account and model policy.
+7. On the compatible Core build, open **Settings → Inference access**. Enable
+   approved access, choose **This dashboard (direct owner)** and select the
+   exact installed capabilities it may use. Review their processing domains,
+   then **Save inference access**. This is separate from provider consent.
+   Enabled, authorized models then appear in Chat and the unified model catalog.
+8. For an external API application, create a separate client key in that same
+   panel and save the one-time disclosure in the application. A new key starts
+   without capability permissions. Select the new caller, approve its exact
+   capabilities and save. Use its bearer credential and exact returned native
+   model IDs with the unified API. Revoke the key when it is no longer needed;
+   approving this dashboard does not approve an external client.
 
 The connection and settings UI is the normal integration management surface.
 Trying a request is optional. [Client enrollment](client-enrollment.md) explains

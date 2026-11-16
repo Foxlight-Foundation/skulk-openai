@@ -230,7 +230,7 @@ def build_native_manifest(
         "bundle_id": "reference.openai.native.mock"
         if mock
         else "reference.openai.native",
-        "bundle_version": "0.6.1",
+        "bundle_version": "0.6.2",
         "title": "Skulk OpenAI Integrator",
         "skulk_requires": ">=2.0.3,<3",
         "executable": executable,
