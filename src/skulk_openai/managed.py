@@ -410,8 +410,10 @@ async def open_application(
 ) -> AsyncGenerator[ApplicationServices]:
     """Own provider/account/UI resources independently of the managed wire cohort.
 
-    ``target_node`` is the explicit application-level legacy proof identity. It
-    must never be inferred by shortening or relabelling a native host identity.
+    ``target_node`` is the explicit application-level proof identity. Adoption
+    retains the original legacy target; a fresh native installation enrolls its
+    actual child identity in its initialization receipt. Neither path permits
+    guessing or relabelling an existing journal's identity.
     Native hosting may supply its exact chat-address matcher; it never replaces
     application proof, account or model authorization, or rewrites signed bytes.
     No provider state or implementation moves into the host or SDK.

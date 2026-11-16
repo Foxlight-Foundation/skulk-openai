@@ -35,9 +35,14 @@ identify a native-capable Skulk build.
    account requires your explicit action and the provider's consent process.
    Provider availability and usage follow that connected account and its app
    settings.
-5. Configure the integration's model allowlist, defaults and Skulk access in
-   its management UI. Enable inference in the application's host configuration
-   when ready. The connected account, integration policy and Skulk's caller
+5. Configure the integration's model allowlist and request defaults in its
+   management UI. On **Connection**, enable inference and explicitly allow
+   external processing when ready. Select **Follow ChatGPT app settings** to
+   permit requests under that account's settings; **Included usage only** stays
+   unavailable until included usage can be verified. Save these choices. Saved
+   integration settings
+   take precedence over the host configuration's initial `inference_enabled`
+   fallback. The connected account, saved integration policy and Skulk's caller
    policy must each permit the request.
 6. Approve the compatible Skulk gateway and its local-owner inference access.
    Enabled, authorized models then appear in Skulk Chat and its unified model
