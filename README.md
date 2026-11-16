@@ -5,6 +5,10 @@ Skulk capability SDK. The capability owns the OpenAI connection, credentials,
 account catalog, provider requests and integration settings. Skulk supplies the
 generic capability host, chat and unified API.
 
+The native `0.6.2` candidate accepts both null and empty-string content on
+tool-only assistant messages. Tool calls, matching results and the enabled-tools
+policy are still validated before provider submission.
+
 ## Install and configure
 
 **Install the signed Integrator from the built-in Foxlight capability store.** Use a compatible
@@ -76,7 +80,7 @@ hash-pinned SDK/tools packages; private Git access is unnecessary. Process and
 unsigned-build checks remain distinct from signed installed qualification. The
 experimental [native managed entrypoint](docs/native-managed.md) documents its
 explicit contract bindings, protected state operations and qualification boundary.
-The [native setup guide](docs/native-setup.md) covers the `0.6.1` preview candidate's
+The [native setup guide](docs/native-setup.md) covers the `0.6.2` preview candidate's
 fresh disconnected installation, existing-state boundary and Chat/API setup.
 
 The optional [model qualification tool](docs/model-qualification.md) plans from

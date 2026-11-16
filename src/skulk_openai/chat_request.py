@@ -142,7 +142,10 @@ class ChatRequest(FrozenContract):
                 if not parts:
                     raise ValueError("empty content")
                 items.append({"role": wire_role, "content": parts})
-            elif content is not None:
+            # Tool-only assistant messages may use either null or an empty
+            # string. The tool-history check below still rejects empty turns
+            # that carry no function calls.
+            elif content is not None and content != "":
                 raise ValueError("unsupported content")
             calls = message.get("tool_calls")
             if calls is not None:

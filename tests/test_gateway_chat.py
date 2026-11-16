@@ -23,6 +23,19 @@ from tests.test_admission import invocation, prepared
 from tests.test_management import browser
 
 
+@pytest.mark.parametrize("role", ["user", "assistant", "system", "developer"])
+@pytest.mark.parametrize("content", [None, ""])
+def test_empty_turn_without_tool_history_is_still_refused(
+    role: str, content: str | None
+) -> None:
+    """Accepting tool-only empty text must not admit otherwise empty messages."""
+    request = ChatRequest.model_validate_json(
+        json.dumps({"messages": [{"role": role, "content": content}]})
+    )
+    with pytest.raises(ValueError):
+        request.responses(IntegrationSettings(allow_function_tools=True))
+
+
 async def configured(tmp_path: Path):
     """Use an actual connected synthetic account and a separate gateway key."""
     capability, _, catalog, api, clock = await prepared(tmp_path)
@@ -175,7 +188,10 @@ async def test_settings_roundtrip_does_not_start_requests_or_expose_binding(
         assert await service.catalog() is None
 
 
-def test_request_translation_preserves_history_tools_and_preview_restrictions() -> None:
+@pytest.mark.parametrize("assistant_content", [None, ""])
+def test_request_translation_preserves_history_tools_and_preview_restrictions(
+    assistant_content: str | None,
+) -> None:
     settings = IntegrationSettings(
         allow_function_tools=True, instructions="Be precise."
     )
@@ -186,7 +202,7 @@ def test_request_translation_preserves_history_tools_and_preview_restrictions() 
                     {"role": "system", "content": "Write code"},
                     {
                         "role": "assistant",
-                        "content": None,
+                        "content": assistant_content,
                         "tool_calls": [
                             {
                                 "id": "call_1",
