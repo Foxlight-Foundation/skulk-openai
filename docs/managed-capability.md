@@ -35,11 +35,14 @@ available while inference is disabled or the account is disconnected. The child
 owns the listener and cancels browser tests/sign-in on shutdown. Declaring this
 surface does not install or activate the package in a running host.
 
-Owner settings contain `inference_enabled` (default false) and an optional
+Owner settings contain `inference_enabled` (default true) and an optional
 absolute `state_directory`. They contain no provider URL, token, caller key or
 callback URL. Generic owner enablement starts the child; inference additionally
 requires `inference_enabled`, an authorized account, fresh choices and a valid
-caller grant. Management remains available when inference offers are withdrawn.
+caller grant. Fresh integration policy permits OpenAI processing and follows
+ChatGPT app settings; it creates no model allowlist or gateway authority. Saved
+pauses and restrictions remain effective. Management remains available when
+inference offers are withdrawn.
 Optional continuation startup settings require explicit retention/storage policy;
 they never silently enable compaction or grant a client access.
 
