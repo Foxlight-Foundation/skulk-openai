@@ -278,7 +278,7 @@ async function refresh() {
   const state = await response.json();
   update(state);
   if (
-    state.connection === "authorized" &&
+    ["authorized", "expired"].includes(state.connection) &&
     !state.connecting &&
     !state.catalog_fresh &&
     !autoCatalogPending &&

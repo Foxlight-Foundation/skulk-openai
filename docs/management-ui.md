@@ -34,7 +34,8 @@ The default account store is the same stable private host directory used by
 `skulk-openai-account`. To use another installation, pass its absolute private
 directory with `--state-dir`. No account copy or new sign-in is needed to open a
 page over an existing store. A connected page automatically fetches its account model catalog when missing
-or stale, at most once per minute after automatic failures; it may renew tokens.
+or stale, at most once per minute after automatic failures; it also attempts
+normal token renewal for an expired saved connection.
 **Refresh catalog** remains available for an explicit retry. Loading a
 disconnected page performs no provider HTTP. Automatic catalog refresh creates
 no model allowlist, gateway grant or inference request.
@@ -150,7 +151,9 @@ Additional owner-session/Origin/CSRF protected routes:
 | `POST /api/notice`                   | `{}`                                                         | Persists dismissal of the non-binding first-use ChatGPT plan notice.                                                                                               |
 | `GET /assets/skulk.svg`, font assets | None                                                         | Packaged mark and self-hosted fonts; no third-party browser fetch.                                                                                                 |
 
-An enabled settings save derives its account fence from the currently selected,
+Fresh disconnected installations can save defaults before connecting while no
+models or gateway are selected. This creates no account fence or caller access.
+An enabled delegation save derives its account fence from the currently selected,
 authorized account, including when only registered continuation clients are in
 use and no gateway key is configured. Saving identical policy preserves its
 protected continuation receipts. A policy change still invalidates checkpoints;
