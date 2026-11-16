@@ -37,7 +37,10 @@ identify a native-capable Skulk build.
    settings.
 5. Configure the integration's model allowlist and request defaults in its
    management UI. On **Connection**, enable inference and explicitly allow
-   external processing when ready, then save. These saved integration settings
+   external processing when ready. Select **Follow ChatGPT app settings** to
+   permit requests under that account's settings; **Included usage only** stays
+   unavailable until included usage can be verified. Save these choices. Saved
+   integration settings
    take precedence over the host configuration's initial `inference_enabled`
    fallback. The connected account, saved integration policy and Skulk's caller
    policy must each permit the request.
