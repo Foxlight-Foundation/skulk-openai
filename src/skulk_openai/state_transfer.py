@@ -1,4 +1,4 @@
-"""Offline protected state custody for explicit native adoption.
+"""Protected state custody for fresh native setup and explicit offline adoption.
 
 Snapshots contain provider secrets and encrypted windows. They stay beneath
 owner-only directories, are never included in releases, and never authorize a
@@ -14,6 +14,7 @@ import math
 import os
 import sqlite3
 import stat
+import tempfile
 from collections.abc import Generator
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
@@ -579,3 +580,175 @@ def restore_quarantined(backup: Path, destination: Path) -> CredentialStore:
         finally:
             os.close(directory)
     return CredentialStore(destination)
+
+
+_NATIVE_INITIALIZATION = "native-initialization.json"
+_INITIALIZATION_PENDING = "state-transfer.pending"
+
+
+@final
+class NativeInitialization(FrozenContract):
+    """Protected fresh-install binding; neither a migration nor caller authority."""
+
+    format: Literal[1] = 1
+    store_host_id: Identifier = Field(description="New disconnected store identity.")
+    native_node_id: Identifier = Field(
+        description="Actual owner-supplied child identity."
+    )
+    native_bundle_id: Identifier = Field(
+        description="Explicit signed application bundle."
+    )
+    bindings: tuple[AdoptionBinding, ...] = Field(
+        min_length=1,
+        max_length=16,
+        description="Independent native/application identities.",
+    )
+
+
+def _synchronize_directory(root: Path) -> None:
+    descriptor = os.open(root, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def initialize_native_state(
+    root: Path,
+    *,
+    node_id: str,
+    bundle_id: str,
+    bindings: tuple[AdoptionBinding, ...],
+) -> NativeInitialization:
+    """Atomically enroll a new disconnected journal in an empty private root.
+
+    No provider account, caller grant or checkpoint is created. Existing files
+    are never replaced. Partial publication retains the quarantine marker so
+    neither a new nor older application can serve partially created state.
+    """
+    if not root.is_absolute():
+        raise AuthFailure("credentials_unavailable")
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    _protected_directory(root)
+    # A stable fence can survive a stopped attempt before journal creation.
+    # It is never unlinked; every other existing file requires explicit custody.
+    if any(path.name != "application-worker.lock" for path in root.iterdir()):
+        raise AuthFailure("credentials_unavailable")
+    with application_fence(root):
+        if any(path.name != "application-worker.lock" for path in root.iterdir()):
+            raise AuthFailure("credentials_unavailable")
+        _private_write(
+            root / _INITIALIZATION_PENDING, b"native disconnected initialization"
+        )
+        with tempfile.TemporaryDirectory(prefix=".native-init-", dir=root) as directory:
+            staged = Path(directory)
+            store = CredentialStore(staged)
+            receipt = NativeInitialization(
+                store_host_id=store.host_id(),
+                native_node_id=node_id,
+                native_bundle_id=bundle_id,
+                bindings=bindings,
+            )
+            _private_write(
+                staged / _NATIVE_INITIALIZATION, receipt.model_dump_json().encode()
+            )
+            # Link publication refuses existing destinations even if another
+            # process attempts to initialize this root during staging.
+            try:
+                os.link(
+                    staged / "credentials.sqlite3",
+                    root / "credentials.sqlite3",
+                    follow_symlinks=False,
+                )
+            except FileExistsError:
+                # No journal of ours was published. Preserve a concurrent
+                # constructor's journal without leaving our quarantine on it.
+                (root / _INITIALIZATION_PENDING).unlink()
+                _synchronize_directory(root)
+                raise AuthFailure("credentials_unavailable") from None
+            os.link(
+                staged / _NATIVE_INITIALIZATION,
+                root / _NATIVE_INITIALIZATION,
+                follow_symlinks=False,
+            )
+            _synchronize_directory(root)
+        (root / _INITIALIZATION_PENDING).unlink()
+        _synchronize_directory(root)
+    return receipt
+
+
+def read_native_initialization(root: Path) -> NativeInitialization:
+    """Verify the private receipt and original journal identity without writing."""
+    _protected_directory(root)
+    if (root / _INITIALIZATION_PENDING).exists() or (
+        root / _INITIALIZATION_PENDING
+    ).is_symlink():
+        raise AuthFailure("credentials_unavailable")
+    receipt = NativeInitialization.model_validate_json(
+        _private_read(root / _NATIVE_INITIALIZATION, 32768)
+    )
+    path = root / "credentials.sqlite3"
+    metadata = path.lstat()
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_uid != os.geteuid()
+        or metadata.st_mode & 0o077
+    ):
+        raise AuthFailure("credentials_unavailable")
+    with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=3) as connection:
+        row = connection.execute(
+            "SELECT value FROM metadata WHERE key='host_id'"
+        ).fetchone()
+        if row is None or str(row[0]) != receipt.store_host_id:
+            raise AuthFailure("credentials_unavailable")
+    return receipt
+
+
+def native_proof_target(
+    root: Path,
+    *,
+    node_id: str,
+    bundle_id: str,
+    bindings: tuple[AdoptionBinding, ...],
+    legacy_target_node: str | None,
+) -> str:
+    """Bind fresh or explicitly adopted state before any account store is opened.
+
+    Fresh installations use their actual installed child as the independent
+    application proof target. An explicit adoption retains its original target.
+    The configuration can never rename either existing identity.
+    """
+    if (root / _INITIALIZATION_PENDING).exists() or (
+        root / _INITIALIZATION_PENDING
+    ).is_symlink():
+        raise AuthFailure("credentials_unavailable")
+    adoption = root / "native-adoption.json"
+    if adoption.exists() or adoption.is_symlink():
+        receipt = read_native_adoption(root)
+        if (
+            receipt.native_node_id != node_id
+            or receipt.native_bundle_id != bundle_id
+            or receipt.bindings != bindings
+            or legacy_target_node not in (None, receipt.legacy_target_node)
+            or (root / _NATIVE_INITIALIZATION).exists()
+            or (root / _NATIVE_INITIALIZATION).is_symlink()
+        ):
+            raise AuthFailure("credentials_unavailable")
+        return receipt.legacy_target_node
+    if legacy_target_node not in (None, node_id):
+        raise AuthFailure("credentials_unavailable")
+    path = root / _NATIVE_INITIALIZATION
+    initialized = (
+        read_native_initialization(root)
+        if path.exists() or path.is_symlink()
+        else initialize_native_state(
+            root, node_id=node_id, bundle_id=bundle_id, bindings=bindings
+        )
+    )
+    if (
+        initialized.native_node_id != node_id
+        or initialized.native_bundle_id != bundle_id
+        or initialized.bindings != bindings
+    ):
+        raise AuthFailure("credentials_unavailable")
+    return node_id

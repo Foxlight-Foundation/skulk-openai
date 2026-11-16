@@ -191,10 +191,33 @@ def build_native_manifest(
     configuration: dict[str, JsonValue] = {
         "type": "object",
         "properties": {
-            "legacy_target_node": {"type": "string", "minLength": 1, "maxLength": 128},
-            "application": {"type": "object"},
+            "legacy_target_node": {
+                "type": ["string", "null"],
+                "minLength": 1,
+                "maxLength": 128,
+                "description": "Original target for an existing-state handoff.",
+            },
+            "application": {
+                "type": "object",
+                "properties": {
+                    "state_directory": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4096,
+                        "title": "Private state directory",
+                        "description": "New private directory; ~/ paths are accepted.",
+                    },
+                    "inference_enabled": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Allow inference after account setup.",
+                    },
+                },
+                "required": ["state_directory"],
+                "additionalProperties": True,
+            },
         },
-        "required": ["legacy_target_node", "application"],
+        "required": ["application"],
         "additionalProperties": False,
     }
     declarations = TypeAdapter(list[JsonValue]).validate_json(

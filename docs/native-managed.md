@@ -82,9 +82,24 @@ grant advancement. No customer compatibility migration is required for this
 development candidate; preserve any connected development account and its
 useful state when cutting it over.
 
+## Fresh setup
+
+The `0.6.0` preview candidate can initialize a new disconnected private state root
+without a legacy node identifier or migration receipt. Its actual installed
+child becomes the new independent application proof target. The protected
+`native-initialization.json` record binds the journal's host identity, child,
+bundle and exact contract families. It grants no account or caller authority.
+An existing populated root is never silently repurposed. See the
+[operator setup guide](native-setup.md) for configuration and access steps.
+
+Fresh creation stages its journal under a private directory and publishes it
+without replacing existing files. The shared pending marker quarantines a
+partial publication for both new and older application code. Continuation
+storage and its encryption key are not enabled by this setup.
+
 ## Protected state adoption
 
-Native configuration supplies an explicit logical proof target and private root:
+Existing-state adoption supplies an explicit original proof target and private root:
 
 ```json
 {
@@ -97,7 +112,7 @@ Native configuration supplies an explicit logical proof target and private root:
 ```
 
 The inherited startup supplies the actual installed native child identity. The
-native entrypoint requires a private adoption receipt matching that child,
+existing-state path requires a private adoption receipt matching that child,
 bundle, original store identity and both contract families before it opens or
 recovers the application journal. There is no default-root fallback.
 
@@ -107,9 +122,6 @@ use stable process/session fences, a database write fence, private files and
 coherent SQLite/key snapshots. They never unlink worker-lock inodes.
 
 ```sh
-# For a deliberately new, empty installation only:
-uv run skulk-openai-state initialize --state-root /absolute/private/state
-
 uv run skulk-openai-state snapshot \
   --state-root /absolute/private/state --output /absolute/private/backup
 uv run skulk-openai-state verify --backup /absolute/private/backup
