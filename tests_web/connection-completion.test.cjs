@@ -81,6 +81,7 @@ async function connectionPage({
         const models = [{ slug: "text-a", title: "Text A" }];
         state = {
           ...state,
+          connection: "authorized",
           models,
           cached_models: models,
           catalog_fresh: true,
@@ -131,6 +132,20 @@ test("successful consent clears the pending message and loads models automatical
 
 test("an existing connected account loads its missing catalog on page entry", async () => {
   const page = await connectionPage({ connection: "authorized" });
+  assert.equal(
+    page.requests.filter((request) => request.path === "/api/models").length,
+    1,
+  );
+});
+
+test("an expired saved connection renews its model catalog automatically", async () => {
+  const page = await connectionPage({ connection: "expired" });
+  assert.equal(page.element("connection-badge").textContent, "Connected");
+  assert.equal(
+    page.requests.filter((request) => request.path === "/api/models").length,
+    1,
+  );
+  await page.poll();
   assert.equal(
     page.requests.filter((request) => request.path === "/api/models").length,
     1,
