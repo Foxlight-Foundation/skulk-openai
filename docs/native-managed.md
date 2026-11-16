@@ -106,7 +106,7 @@ Existing-state adoption supplies an explicit original proof target and private r
   "legacy_target_node": "unchanged-application-proof-target",
   "application": {
     "state_directory": "/absolute/private/state",
-    "inference_enabled": false
+    "inference_enabled": true
   }
 }
 ```

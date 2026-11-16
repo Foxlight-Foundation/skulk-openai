@@ -102,7 +102,7 @@ Steward declaration is not a free-usage guarantee. Hosted models come from the
 connected provider account, not the native Model Store.
 
 Set a dedicated account-state directory for an isolated test. Confirm management
-works while disconnected and inference is disabled. On the authorized account
+works while disconnected and when requests are explicitly paused. On the authorized account
 host, separately exercise connection/settings, enabled model discovery, chat,
 the documented direct-owner API, cancellation and restart. Do not move account
 tokens to another host to qualify installation. Verify update, rollback and
