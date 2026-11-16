@@ -22,8 +22,12 @@ def test_default_policy_has_no_owner_caps_and_allows_images() -> None:
     assert settings.maximum_requests_per_hour is None
     assert settings.maximum_output_characters is None
     assert settings.allow_images
-    assert not settings.inference_enabled
-    assert settings.processing == "local_only"
+    assert settings.inference_enabled
+    assert settings.processing == "allow_openai"
+    assert settings.usage == "app_settings"
+    assert settings.models == ()
+    assert settings.gateway_public_key is None
+    assert settings.account_binding is None
 
 
 @pytest.mark.parametrize(

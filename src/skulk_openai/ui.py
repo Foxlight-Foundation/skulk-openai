@@ -20,10 +20,13 @@ async def run(
     *,
     state_directory: Path,
     port: int = 0,
-    enable_inference: bool = False,
+    enable_inference: bool = True,
     open_browser: bool = True,
 ) -> None:
-    """Serve until interrupted; loading the page performs no provider request."""
+    """Serve until interrupted; connected pages may refresh model metadata.
+
+    Generation still requires an explicit request and independent admission.
+    """
     sessions = SessionManager(
         CredentialStore(state_directory), OAuthClient(allow_live=True)
     )
@@ -56,7 +59,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Skulk OpenAI Integrator")
     parser.add_argument("--state-dir", type=Path, default=default_state_directory())
     parser.add_argument("--port", type=int, default=0)
-    parser.add_argument("--enable-inference", action="store_true")
+    inference = parser.add_mutually_exclusive_group()
+    inference.add_argument(
+        "--pause-inference", action="store_false", dest="enable_inference"
+    )
+    inference.add_argument(
+        "--enable-inference", action="store_true", help=argparse.SUPPRESS
+    )
+    parser.set_defaults(enable_inference=True)
     parser.add_argument("--no-browser", action="store_true")
     arguments = parser.parse_args()
     with contextlib.suppress(KeyboardInterrupt):

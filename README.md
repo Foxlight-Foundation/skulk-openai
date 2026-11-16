@@ -76,7 +76,7 @@ hash-pinned SDK/tools packages; private Git access is unnecessary. Process and
 unsigned-build checks remain distinct from signed installed qualification. The
 experimental [native managed entrypoint](docs/native-managed.md) documents its
 explicit contract bindings, protected state operations and qualification boundary.
-The [native setup guide](docs/native-setup.md) covers the `0.6.0` preview candidate's
+The [native setup guide](docs/native-setup.md) covers the `0.6.1` preview candidate's
 fresh disconnected installation, existing-state boundary and Chat/API setup.
 
 The optional [model qualification tool](docs/model-qualification.md) plans from

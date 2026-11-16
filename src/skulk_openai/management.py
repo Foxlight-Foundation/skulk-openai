@@ -504,6 +504,14 @@ class ManagementServer:
                     # Disabling must work offline; retaining an inactive old
                     # fence does not approve a new account or gateway key.
                     binding = previous.account_binding
+                elif (
+                    settings.gateway_public_key is None
+                    and previous.account_binding is None
+                    and not settings.models
+                ):
+                    # Fresh installations can save defaults before signing in.
+                    # No account fence, gateway or model authority is created.
+                    binding = None
                 else:
                     raise ValueError("connect account before enabling delegation")
                 settings = settings.model_copy(update={"account_binding": binding})
