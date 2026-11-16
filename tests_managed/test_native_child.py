@@ -30,6 +30,7 @@ from skulk_openai.native_contracts import (
     wrap_payload,
 )
 from skulk_openai.settings import IntegrationSettings, account_binding
+from skulk_openai.state_transfer import read_native_initialization
 from tests.test_admission import invocation, prepared
 from tests.test_input_body import payload
 from tests_managed.native_child import NATIVE, NativeChild, native_child, output
@@ -116,6 +117,37 @@ async def test_native_disabled_settings_ui_and_listener_ownership(
     async with httpx.AsyncClient(trust_env=False) as browser:
         with pytest.raises(httpx.ConnectError):
             await browser.get(url)
+
+
+async def test_native_fresh_install_reaches_disconnected_ui_without_adoption(
+    tmp_path: Path,
+) -> None:
+    """An empty installation uses its actual child identity and no migration fixture."""
+    root = tmp_path / "fresh"
+    assert not root.exists()
+    host_id: str | None = None
+    for _ in range(2):
+        async with native_child(root, enabled=False, fresh=True) as child:
+            receipt = read_native_initialization(root)
+            assert receipt.native_node_id == "native-synthetic-child"
+            assert host_id in (None, receipt.store_host_id)
+            host_id = receipt.store_host_id
+            assert not (root / "native-adoption.json").exists()
+            assert not (root / "continuation.key").exists()
+            health = await child.health()
+            surface = _SURFACES.validate_python(health["surfaces"], strict=True)[0]
+            port = TypeAdapter(int).validate_python(surface["port"], strict=True)
+            async with httpx.AsyncClient(trust_env=False) as browser:
+                page = await browser.get(f"http://127.0.0.1:{port}/")
+                assert page.status_code == 200
+                assert "Skulk OpenAI Integrator" in page.text
+                state = _OBJECT.validate_json(
+                    (await browser.get(f"http://127.0.0.1:{port}/api/state")).content
+                )
+                assert state["connection"] == "disconnected"
+                assert state["inference_enabled"] is False
+            assert (await read(child, 0))["offers"] == []
+            assert (await read(child, 2))["requests_started"] == 0
 
 
 async def test_native_signed_generation_and_replay_fence(tmp_path: Path) -> None:

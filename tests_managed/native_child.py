@@ -186,6 +186,7 @@ async def native_child(
     enabled: bool = True,
     continuation: ContinuationConfiguration | None = None,
     entrypoint: Path | None = None,
+    fresh: bool = False,
 ) -> AsyncGenerator[NativeChild]:
     """Own one account-free process; always drain it and every test socket."""
     connected: asyncio.Queue[tuple[asyncio.StreamReader, asyncio.StreamWriter]] = (
@@ -206,7 +207,7 @@ async def native_child(
         writers.append(writer)
         media.put_nowait((reader, writer))
 
-    if not (state / "native-adoption.json").exists():
+    if not fresh and not (state / "native-adoption.json").exists():
         store = CredentialStore(state)
         backup = state.parent / ("native-snapshot-" + secrets.token_hex(8))
         snapshot = snapshot_state(store, backup)
@@ -260,6 +261,10 @@ async def native_child(
             "credential_config": None,
             "serve_host": None,
         }
+        if fresh:
+            configuration = _OBJECT.validate_python(value["configuration"], strict=True)
+            configuration.pop("legacy_target_node")
+            value["configuration"] = configuration
         startup = NATIVE.ManagedV2Contract.from_json("Startup", json.dumps(value))
         child: NativeChild | None = None
         with tempfile.TemporaryFile() as record:

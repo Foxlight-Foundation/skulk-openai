@@ -44,17 +44,18 @@ from .native_contracts import (
     wrap_payload,
 )
 from .provider import ProviderFailure
-from .state_transfer import read_native_adoption
+from .state_transfer import native_proof_target
 
 _OBJECT = TypeAdapter(dict[str, JsonValue])
 _TEXT = TypeAdapter(str)
 
 
 class NativeConfiguration(FrozenContract):
-    """Explicit legacy proof identity and validated application settings."""
+    """Validated state settings and optional existing-state proof identity."""
 
-    legacy_target_node: Identifier = Field(
-        description="Unchanged application proof target; never a native revision alias."
+    legacy_target_node: Identifier | None = Field(
+        default=None,
+        description="Original target for an explicit state handoff.",
     )
     application: Configuration
 
@@ -138,7 +139,7 @@ def create_app(*, mock: bool = False) -> CapabilityApp:
         configuration = NativeConfiguration.model_validate_json(
             json.dumps(startup.configuration)
         )
-        # Adoption must name its store explicitly. A packaging rehearsal must
+        # Setup must name its store explicitly. A packaging rehearsal must
         # never accidentally initialize or recover the operator's default store.
         if configuration.application.state_directory is None:
             raise ValueError(
@@ -149,19 +150,18 @@ def create_app(*, mock: bool = False) -> CapabilityApp:
         )
         if not root.is_absolute():
             raise ValueError("native application state root must be absolute")
-        # No account store is initialized/recovered until the explicit offline
-        # receipt binds this actual child and both independent contract families.
-        receipt = await asyncio.to_thread(read_native_adoption, root)
-        if (
-            receipt.native_node_id != startup.node_id
-            or receipt.legacy_target_node != configuration.legacy_target_node
-            or receipt.native_bundle_id
-            != ("reference.openai.native.mock" if mock else "reference.openai.native")
-            or receipt.bindings != adoption_bindings(mock=mock)
-        ):
-            raise ValueError("native application adoption receipt differs")
+        target = await asyncio.to_thread(
+            native_proof_target,
+            root,
+            node_id=startup.node_id,
+            bundle_id="reference.openai.native.mock"
+            if mock
+            else "reference.openai.native",
+            bindings=adoption_bindings(mock=mock),
+            legacy_target_node=configuration.legacy_target_node,
+        )
         async with open_application(
-            configuration.legacy_target_node,
+            target,
             configuration.application,
             mock=mock,
             chat_model_address_matches=matches_model_address,
