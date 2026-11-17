@@ -67,6 +67,15 @@ binary caller media. Large text and function-argument deltas are fragmented
 without truncation. A completed transport terminal establishes transport cleanup;
 clients must also interpret the inner chat/continuation outcome.
 
+The native adapter drains remaining caller input before publishing a common
+transport terminal, including a refusal issued before authentication consumes
+the body. This avoids closing the duplex socket while the host is writing the
+input opener. Discarded input is bounded to 1 MiB per chunk and 16 MiB across
+the call, with a 30-second remaining-input cleanup deadline. It is not parsed,
+persisted or sent to the provider. Cancellation, overflow and malformed input
+still fail closed; draining never retries or grants a rejected request. The
+cleanup deadline is an I/O resource bound, not a generation duration ceiling.
+
 Native HTTP continuation accepts its declared native chat ID/version and the
 signed model slug in the `model` address. Core independently owns and verifies
 the installation routing component; that label confers no account authority.
