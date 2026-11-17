@@ -574,3 +574,107 @@ async def test_populated_legacy_native_and_rollback_share_protected_history(
         )
         assert replay.event.kind == "failed"
         assert (await legacy_unary(legacy, 2))["requests_started"] == 0
+
+
+async def test_native_early_proof_refusal_keeps_input_open_until_half_close(
+    tmp_path: Path,
+) -> None:
+    """A refused proof can report its error without racing the host's first write."""
+    from skulk_inference_reference.continuation_wire import ContinuationEvent
+    from skulk_openai.checkpoints import CheckpointPolicy
+    from skulk_openai.managed import ContinuationConfiguration
+    from tests.test_checkpoints import USER, signed
+    from tests_managed.test_continuation_child import enrolled
+
+    store, credential = await enrolled(tmp_path)
+    proof, body = signed(store, credential, [USER])
+    proof = proof.model_copy(update={"signature": "0" * 128})
+    configuration = ContinuationConfiguration(
+        storage=CheckpointPolicy(
+            retention_seconds=300,
+            maximum_records=32,
+            maximum_storage_bytes=64 * 1024 * 1024,
+        )
+    )
+    async with native_child(
+        store.credentials.root, continuation=configuration
+    ) as child:
+        call_id = await child.invoke(7, _OBJECT.validate_json(proof.model_dump_json()))
+        reader, writer = await child.stream(call_id)
+        frame, media = await output(reader)
+        assert frame["kind"] == "chunk" and not media
+        event = ContinuationEvent.model_validate_json(
+            json.dumps(
+                unwrap_payload(
+                    child.bindings[7],
+                    _OBJECT.validate_python(frame["payload"], strict=True),
+                )
+            )
+        )
+        assert (
+            event.event.kind == "failed"
+            and event.continuation_error == "authority_unavailable"
+        )
+        terminal = asyncio.create_task(output(reader))
+        try:
+            done, _ = await asyncio.wait({terminal}, timeout=0.05)
+            assert not done, "transport terminal escaped before caller input finished"
+            for sequence, kind in enumerate(("started", "chunk", "completed")):
+                source: dict[str, JsonValue] = {
+                    "call_id": call_id,
+                    "direction": "caller_to_provider",
+                    "sequence": sequence,
+                    "kind": kind,
+                }
+                content = b""
+                if kind == "chunk":
+                    source.update(
+                        payload={},
+                        media={"kind": "inline", "media_type": BODY_MEDIA_TYPE},
+                    )
+                    content = body
+                writer.write(
+                    NATIVE.encode_transport_v2_packet(json.dumps(source), content)
+                )
+                await writer.drain()
+            frame, media = await asyncio.wait_for(terminal, 5)
+            assert frame["kind"] == "completed" and not media
+            end, _ = await output(reader)
+            assert end["kind"] == "end"
+            response, payload_bytes = await child.receive()
+            assert response["error"] is None and payload_bytes == b"{}"
+            assert (await read(child, 2))["requests_started"] == 0
+        finally:
+            if not terminal.done():
+                terminal.cancel()
+            await asyncio.gather(terminal, return_exceptions=True)
+
+
+@pytest.mark.parametrize("chunk_sizes", [(1024 * 1024 + 1,), (1024 * 1024,) * 17])
+async def test_native_discarded_input_retains_per_chunk_and_call_bounds(
+    chunk_sizes: tuple[int, ...],
+) -> None:
+    """An early refusal must not turn input cleanup into unbounded media intake."""
+    from collections.abc import AsyncIterator
+
+    from skulk_capability_sdk.application import InputFrame
+
+    from skulk_openai.native_managed import application_inputs
+
+    async def inputs() -> AsyncIterator[InputFrame]:
+        for sequence, size in enumerate(chunk_sizes, 1):
+            yield InputFrame(
+                {
+                    "call_id": "a" * 32,
+                    "direction": "caller_to_provider",
+                    "sequence": sequence,
+                    "kind": "chunk",
+                    "payload": {},
+                    "media": {"kind": "inline", "media_type": BODY_MEDIA_TYPE},
+                },
+                b"x" * size,
+            )
+
+    with pytest.raises(ValueError, match="application bounds"):
+        async for _ in application_inputs(inputs()):
+            pass

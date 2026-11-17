@@ -8,6 +8,8 @@ generic capability host, chat and unified API.
 The native `0.6.2` candidate accepts both null and empty-string content on
 tool-only assistant messages. Tool calls, matching results and the enabled-tools
 policy are still validated before provider submission.
+Native refusals also finish the bounded caller upload before closing their
+transport, so a rejected client receives its semantic error reliably.
 
 ## Install and configure
 

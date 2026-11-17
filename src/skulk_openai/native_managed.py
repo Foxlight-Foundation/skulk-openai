@@ -28,6 +28,7 @@ from skulk_capability_sdk.streams import InlineMedia, StreamFrame
 
 from skulk_inference_reference.continuation import ContinuationFailure
 from skulk_inference_reference.contracts import FrozenContract, Identifier
+from skulk_inference_reference.input_body import MAX_BODY_BYTES, MAX_BODY_CHUNK_BYTES
 
 from .auth_contracts import AuthFailure
 from .managed import (
@@ -87,7 +88,11 @@ async def application_inputs(
     inputs: AsyncIterator[InputFrame],
 ) -> AsyncGenerator[StreamFrame]:
     """Project admitted inline media into domain frames without blob resolution."""
+    received_bytes = 0
     async for frame in inputs:
+        received_bytes += len(frame.media)
+        if len(frame.media) > MAX_BODY_CHUNK_BYTES or received_bytes > MAX_BODY_BYTES:
+            raise ValueError("native request media exceeds application bounds")
         projection = frame.projection
         metadata = projection.get("media")
         media = None
@@ -207,6 +212,21 @@ def create_app(*, mock: bool = False) -> CapabilityApp:
                 async for event in events:
                     if event.kind == "started":
                         raise ValueError("domain output cannot restart a direction")
+                    if binding.legacy.io_mode == "bidirectional" and event.kind in {
+                        "completed",
+                        "failed",
+                        "cancelled",
+                    }:
+                        # An authentication refusal can precede the input opener.
+                        # Keep the duplex socket alive for the caller's bounded
+                        # upload before publishing its transport terminal. Closing
+                        # it early races the host write and erases the refusal.
+                        async with asyncio.timeout(30):
+                            async for remainder in input_frames:
+                                if remainder.kind in {"failed", "cancelled"}:
+                                    raise ValueError(
+                                        "native caller input did not finish"
+                                    )
                     yield OutputFrame(
                         event.kind,
                         wrap_payload(binding, event.payload)
