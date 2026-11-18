@@ -28,7 +28,7 @@ First inspect the plan. Then select exact IDs from your current catalog and a
 
 ```sh
 uv run python examples/qualify_models.py \
-  --model 'capability/openai.inference.chat/<enabled-model-slug>' \
+  --model 'native/<installation-id>/openai.native.chat@0.2.0/<enabled-model-slug>' \
   --execute --report ./qualification.json
 ```
 
@@ -38,6 +38,13 @@ be repeated. `--all-enabled` explicitly selects all currently enabled managed
 models, bounded to 128 per run. There is no automatic generation retry or resume;
 a report from an interrupted run cannot be re-executed by the library runner.
 Existing report files are refused before network effects.
+
+Copy the complete model ID from `/v1/models`. Native IDs bind the probe to that
+exact installation and versioned descriptor. The selected runtime must be running
+with the same active digest and the descriptor's full native revision. A matching
+descriptor in a different installation cannot satisfy that identity. Legacy
+`capability/<capability-id>/<model-slug>` IDs remain supported and require one
+unique ready installed descriptor.
 
 Add `--media` to plan two additional requests per model that advertises all four
 required features: image input, text input files, PDF input and function tools.
@@ -71,8 +78,9 @@ independent cryptographic release verification.
 - Expected color/document words and tool-result value preservation are separate
   answer observations. An unexpected valid answer does not by itself fail the
   serving contract. Valid output on this fixture does not qualify every schema.
-- A runtime replacement during the run invalidates the aggregate identity-bound
-  result without replaying generation. Interrupted receipts remain incomplete.
+- A runtime replacement, installation change, or ambiguous descriptor during the
+  run invalidates the aggregate identity-bound result without replaying generation.
+  Interrupted receipts remain incomplete.
 - Failure categories exclude provider-controlled error text. The exit status is
   nonzero on execution failure; inspect every case rather than inferring that a
   skipped feature passed.

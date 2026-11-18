@@ -6,6 +6,7 @@ from typing import NoReturn
 
 import httpx
 import pytest
+from pydantic import TypeAdapter
 
 from examples.qualify_models import (
     EXPECTED,
@@ -21,15 +22,16 @@ from examples.qualify_models import (
 
 MODEL = "capability/fixture.chat/text"
 DIGEST = "b" * 64
+NATIVE_MODEL = "native/managed.fixture/fixture.native.chat@0.2.0/text"
 
 
-def catalog(*, media: bool = True) -> bytes:
+def catalog(*, media: bool = True, model: str = MODEL) -> bytes:
     """Return unrelated managed metadata; no OpenAI identity or token is needed."""
     return json.dumps(
         {
             "data": [
                 {
-                    "id": MODEL,
+                    "id": model,
                     "inference_capability": {
                         "contract": "chat.completions@0.2.0",
                         "features": sorted(MEDIA_FEATURES) if media else [],
@@ -40,20 +42,27 @@ def catalog(*, media: bool = True) -> bytes:
     ).encode()
 
 
-def inventory(digest: str = DIGEST) -> bytes:
+def inventory(
+    digest: str = DIGEST,
+    *,
+    plugin_id: str | None = None,
+    qualified_id: str = "fixture.chat@0.2.0",
+    revision: str = "a" * 16,
+) -> bytes:
     """Bind one independently identified fixture descriptor to its live runtime."""
     return json.dumps(
         {
             "installations": [
                 {
+                    "plugin_id": plugin_id,
                     "release": {
                         "bundle_id": "fixture",
                         "bundle_version": "1.0.0",
                         "registration": {
                             "capabilities": [
                                 {
-                                    "qualified_id": "fixture.chat@0.2.0",
-                                    "revision": "a" * 16,
+                                    "qualified_id": qualified_id,
+                                    "revision": revision,
                                 }
                             ]
                         },
@@ -67,6 +76,26 @@ def inventory(digest: str = DIGEST) -> bytes:
             ]
         }
     ).encode()
+
+
+def native_inventory(
+    *, plugin_id: str = "managed.fixture", revision: str = "a" * 64
+) -> bytes:
+    """Identify a native fixture using the full portable descriptor revision."""
+    return inventory(
+        plugin_id=plugin_id, qualified_id="fixture.native.chat@0.2.0", revision=revision
+    )
+
+
+def combined_inventory(*values: bytes) -> bytes:
+    """Combine public installation responses without altering their identities."""
+    installations: list[Object] = []
+    for value in values:
+        record = TypeAdapter(Object).validate_json(value)
+        installations.extend(
+            TypeAdapter(list[Object]).validate_python(record["installations"])
+        )
+    return json.dumps({"installations": installations}).encode()
 
 
 def prepared(*, media: bool = False, advertised: bool = True) -> Report:
@@ -153,6 +182,88 @@ def test_unknown_or_duplicate_model_selection_is_refused_before_egress() -> None
                 media=True,
                 now=1000.0,
             )
+
+
+def test_native_plan_binds_the_exact_installation_and_full_descriptor() -> None:
+    """An unrelated installation with the same descriptor must not be selected."""
+    report = plan(
+        catalog(model=NATIVE_MODEL),
+        combined_inventory(native_inventory(), native_inventory(plugin_id="other")),
+        (NATIVE_MODEL,),
+        all_enabled=False,
+        media=False,
+        now=1000.0,
+    )
+    runtime = report.cases[0].runtime
+    assert runtime.plugin_id == "managed.fixture"
+    assert runtime.qualified_id == "fixture.native.chat@0.2.0"
+    assert runtime.revision == "a" * 64 and runtime.digest == DIGEST
+    assert not report.executed and report.cases[0].submitted_requests == 0
+
+
+@pytest.mark.parametrize(
+    ("model", "installed"),
+    [
+        (NATIVE_MODEL, native_inventory(plugin_id="other")),
+        (NATIVE_MODEL, native_inventory(revision="a" * 16)),
+        (NATIVE_MODEL, combined_inventory(native_inventory(), native_inventory())),
+        ("native//fixture.native.chat@0.2.0/text", native_inventory()),
+        ("native/managed.fixture/fixture.native.chat@0.2.0/", native_inventory()),
+        ("native/managed.fixture/fixture.native.chat@0.1.0/text", native_inventory()),
+        ("native/managed.fixture/fixture.native.chat/text", native_inventory()),
+    ],
+)
+def test_native_planning_refuses_unbound_or_inconsistent_identity(
+    model: str, installed: bytes
+) -> None:
+    """Missing, ambiguous, truncated and version-mismatched bindings fail closed."""
+    with pytest.raises(ValueError):
+        _ = plan(
+            catalog(model=model),
+            installed,
+            (model,),
+            all_enabled=False,
+            media=False,
+            now=1000.0,
+        )
+
+
+@pytest.mark.parametrize(
+    "final_inventory",
+    [
+        native_inventory(plugin_id="replacement"),
+        combined_inventory(native_inventory(), native_inventory()),
+    ],
+)
+async def test_native_runtime_rebinding_invalidates_results_without_replay(
+    final_inventory: bytes,
+) -> None:
+    """Identical code in another installation cannot inherit execution evidence."""
+    calls = 0
+
+    async def handle(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        if request.method == "GET":
+            return httpx.Response(200, content=final_inventory)
+        calls += 1
+        return httpx.Response(
+            200, headers={"content-type": "text/event-stream"}, content=STREAM
+        )
+
+    report = plan(
+        catalog(model=NATIVE_MODEL),
+        native_inventory(),
+        (NATIVE_MODEL,),
+        all_enabled=False,
+        media=False,
+        now=1000.0,
+    )
+    async with httpx.AsyncClient(
+        base_url="http://fixture.invalid", transport=httpx.MockTransport(handle)
+    ) as client:
+        result = await Qualification(client, lambda _: None).execute(report)
+    assert calls == 1 and result.cases[0].outcome == "passed"
+    assert result.runtime_stable is False and not result.passed
 
 
 class BrokenTransport(httpx.AsyncByteStream):
