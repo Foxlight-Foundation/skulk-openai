@@ -280,6 +280,116 @@ async def test_compaction_is_private_and_only_new_input_follows_latest_checkpoin
     assert b"opaque-latest" not in raw and b"Synthetic custody" not in raw
 
 
+@pytest.mark.parametrize("empty_snapshot", [False, True])
+async def test_compaction_progress_keeps_encrypted_custody_and_public_history(
+    tmp_path: Path, empty_snapshot: bool
+) -> None:
+    """Documented sampling progress is not a delta, completion or checkpoint."""
+
+    def build(number: int) -> list[dict[str, JsonValue]]:
+        events = output_events(compacted_output() if number == 1 else [text_output()])
+        result: list[dict[str, JsonValue]] = []
+        for event in events:
+            result.append(event)
+            item = event.get("item")
+            if (
+                event["type"] == "response.output_item.added"
+                and isinstance(item, dict)
+                and item["type"] == "compaction"
+            ):
+                result.append(
+                    {
+                        "type": "response.compaction.compacting",
+                        "item_id": item["id"],
+                        "output_index": event["output_index"],
+                        "sequence_number": len(result),
+                    }
+                )
+        if empty_snapshot:
+            response = result[-1]["response"]
+            assert isinstance(response, dict)
+            response["output"] = []
+        return result
+
+    api = ResponseAPI(build)
+    store, credential, provider = await integrated(tmp_path, api)
+    profile = _PROFILE.model_copy(
+        update={"terminal_output": "empty_snapshot" if empty_snapshot else "complete"}
+    )
+    with store.worker() as worker:
+        service = ContinuationService(worker, provider, profile=profile)
+        first = await collect(service, store, credential, [USER])
+        receipt = first[-1].receipt
+        assert receipt is not None and first[-1].event.kind == "completed"
+        assert len(first) == 2 and first[0].event.delta == {"content": "hello"}
+        assert all("opaque-" not in event.model_dump_json() for event in first)
+        following = await collect(
+            service,
+            store,
+            credential,
+            [USER, {"role": "assistant", "content": "hello"}, NEXT],
+            receipt,
+        )
+        assert following[-1].event.kind == "completed"
+    assert api.requests[1]["input"] == [
+        {"type": "compaction", "id": "cmp-2", "encrypted_content": "opaque-latest"},
+        {"role": "user", "content": "Continue"},
+    ]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "before_item",
+        "after_done",
+        "wrong_item",
+        "wrong_index",
+        "sequence",
+        "no_profile",
+    ],
+)
+async def test_unbound_compaction_progress_never_commits(
+    tmp_path: Path, change: str
+) -> None:
+    """Progress must refer to an enabled pending compaction item in this stream."""
+
+    def build(_: int) -> list[dict[str, JsonValue]]:
+        events = output_events(compacted_output())
+        progress: dict[str, JsonValue] = {
+            "type": "response.compaction.compacting",
+            "item_id": "cmp-1",
+            "output_index": 0,
+            "sequence_number": 1,
+        }
+        position = 1
+        if change == "before_item":
+            position = 0
+        elif change == "after_done":
+            position = 2
+        elif change == "wrong_item":
+            progress["item_id"] = "cmp-other"
+        elif change == "wrong_index":
+            progress["output_index"] = 1
+        elif change == "sequence":
+            progress["sequence_number"] = True
+        events.insert(position, progress)
+        return events
+
+    api = ResponseAPI(build)
+    store, credential, provider = await integrated(tmp_path, api)
+    with store.worker() as worker:
+        events = await collect(
+            ContinuationService(
+                worker, provider, profile=None if change == "no_profile" else _PROFILE
+            ),
+            store,
+            credential,
+            [USER],
+        )
+        assert not worker.leases
+    assert events[-1].event.kind == "failed" and all(e.receipt is None for e in events)
+
+
 @pytest.mark.parametrize(
     "failure", ["eof", "trailing", "incomplete", "usage", "missing_done"]
 )

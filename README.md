@@ -5,7 +5,12 @@ Skulk capability SDK. The capability owns the OpenAI connection, credentials,
 account catalog, provider requests and integration settings. Skulk supplies the
 generic capability host, chat and unified API.
 
-The native `0.6.2` candidate accepts both null and empty-string content on
+The source `0.6.3` candidate adds validated, private handling of OpenAI's compaction
+progress event. This parser change still needs signed delivery and real-account
+headroom qualification; it does not enable automatic compaction by default.
+The signed Store release remains `0.6.2` until that delivery completes.
+
+The native `0.6.2` release accepts both null and empty-string content on
 tool-only assistant messages. Tool calls, matching results and the enabled-tools
 policy are still validated before provider submission.
 Native refusals also finish the bounded caller upload before closing their
