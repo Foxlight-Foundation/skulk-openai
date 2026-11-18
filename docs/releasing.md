@@ -1,5 +1,10 @@
 # Preparing an Integrator release
 
+> The commands below describe the legacy managed publisher path. For the native
+> 0.6.3 preview, use [native runtime acquisition](native-runtime.md), the public
+> SDK native publishing contract linked there, and the matching signed cohort.
+> Operators should start with the [operator manual](operator/index.md).
+
 This is the maintainer path for the experimental managed capability. It uses
 the SDK's publisher and catalog tools; it does not publish a release or make
 the SDK available to other developers. Install public tools using the
