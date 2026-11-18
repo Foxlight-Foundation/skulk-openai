@@ -10,9 +10,11 @@ Use OpenAI models in Skulk Chat and applications connected to Skulk's unified AP
 
 > **Native preview 0.6.3.** This version requires a compatible experimental Skulk host. The current stable Skulk release does not include that host. Check [compatibility](compatibility.md) before installing. A Skulk version number alone is not enough.
 
-![The Integrator Connection page showing a connected account and available models](images/connection.jpg)
+[![The Integrator Connection page showing a connected account and available models](images/connection.jpg)](images/connection.jpg)
 
 *Connection is the place to manage your ChatGPT account. Your model list may differ from this example.*
+
+Select a screenshot to open it at full size.
 
 ## How the pieces fit
 

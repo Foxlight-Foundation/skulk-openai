@@ -30,7 +30,7 @@ After an application update, review the new signed implementation. A stale permi
 
 ## Use diagnostics deliberately
 
-![Diagnostics before sending a test request](images/diagnostics.jpg)
+[![Diagnostics before sending a test request](images/diagnostics.jpg)](images/diagnostics.jpg)
 
 *This screen is ready for an optional test; the screenshot does not show a new request or a claimed result.*
 

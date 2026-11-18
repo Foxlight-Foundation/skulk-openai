@@ -5,7 +5,7 @@ sidebar_position: 5
 
 After [setup](getting-started.md), choose an Integrator model in Skulk Chat. Text and code use the normal conversation interface; the integration's processing and model permissions still apply.
 
-![A native OpenAI reply rendered as Python code in Skulk Chat](images/chat-code.jpg)
+[![A native OpenAI reply rendered as Python code in Skulk Chat](images/chat-code.jpg)](images/chat-code.jpg)
 
 *This is an existing completed test conversation. Code is formatted for reading and copying; rendering a code block does not run it.*
 

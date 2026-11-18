@@ -35,7 +35,7 @@ Use a new or empty directory. Do not point a new installation at another applica
 2. Complete OpenAI's sign-in and plan-consent flow in the page it opens.
 3. Return to the Integrator. Wait for **Connected** and **Plan access: Available**.
 
-![Connection after successful account consent](images/connection.jpg)
+[![Connection after successful account consent](images/connection.jpg)](images/connection.jpg)
 
 *This is the successful connected state. A fresh installation offers Continue with ChatGPT in place of Reconnect and Disconnect.*
 
@@ -48,7 +48,7 @@ Models load automatically after consent. **Follow ChatGPT app settings** is the 
 3. Choose a **Default model** for the Integrator's diagnostics.
 4. Choose **Save settings** and wait for the saved confirmation.
 
-![Models with one account model enabled](images/models.jpg)
+[![Models with one account model enabled](images/models.jpg)](images/models.jpg)
 
 *Enabled models can be offered to authorized Skulk callers. The Default model here selects the diagnostic model; choose your conversation's model in Chat.*
 

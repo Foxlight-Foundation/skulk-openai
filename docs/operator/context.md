@@ -38,7 +38,7 @@ Saving node configuration can restart the child. Wait for healthy status before 
 
 A compatible client generates its signing key locally. In **Skulk access → Continuation clients**, paste **only its public key**, select enabled models and an expiry, then choose **Approve public key**. Return the displayed public enrollment to that client. The private key stays with the client.
 
-![Continuation client approval form with an empty public-key field](images/continuation.jpg)
+[![Continuation client approval form with an empty public-key field](images/continuation.jpg)](images/continuation.jpg)
 
 *This screenshot shows an installation with storage already configured. An ordinary API key and a continuation signing key serve different purposes.*
 

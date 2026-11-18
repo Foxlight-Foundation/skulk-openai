@@ -7,7 +7,7 @@ Use **Models** to choose which account models Skulk may offer. Use **Request def
 
 ## Model selection
 
-![Account catalog and enabled model selection](images/models.jpg)
+[![Account catalog and enabled model selection](images/models.jpg)](images/models.jpg)
 
 Enable only the models you want available through this integration. The **Default model** dropdown is for the Integrator's diagnostics. Each Chat conversation or API request still chooses a model; it does not automatically use that diagnostic default.
 
@@ -15,7 +15,7 @@ Disabling a model withdraws it from this integration's available choices. Accoun
 
 ## Request defaults
 
-![Request defaults with image and function-tool permissions enabled and local caps off](images/request-defaults.jpg)
+[![Request defaults with image and function-tool permissions enabled and local caps off](images/request-defaults.jpg)](images/request-defaults.jpg)
 
 *The switches control this integration. Their off state for a ceiling means no local ceiling; provider, model and transport limits still apply.*
 

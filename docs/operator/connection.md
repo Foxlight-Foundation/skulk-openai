@@ -5,7 +5,7 @@ sidebar_position: 3
 
 Open the installed Integrator's management page and choose **Connection**. This page controls the ChatGPT connection and whether new requests may use it.
 
-![Connected account and advanced connection controls](images/connection-controls.jpg)
+[![Connected account and advanced connection controls](images/connection-controls.jpg)](images/connection-controls.jpg)
 
 *Advanced controls contains Pause requests and Usage policy. These are separate from OpenAI's own app settings.*
 
