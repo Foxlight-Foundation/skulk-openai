@@ -1,6 +1,6 @@
 # Setting up the native Integrator preview
 
-This guide covers the `0.6.2` preview native candidate. Use the compatible Skulk
+This guide covers the `0.6.3` native preview. Use the compatible Skulk
 build and signed release source identified by that release's qualification
 notes. Source availability, a signed package, Store publication and stable
 Skulk support are separate facts; the version number `2.0.3` alone does not
@@ -93,3 +93,7 @@ existing journals, explicit adoption and interrupted creation. A real public-SDK
 process reaches the disconnected settings UI without a migration fixture.
 Signed installed Core, rendered browser behavior, provider consent and
 account-backed requests each require their own recorded acceptance.
+
+The published 0.6.3 preview has an installed, account-backed
+[qualification record](native-qualification-0.6.3.md). Its tested model, compaction
+and mounted-speech scope does not establish stable Skulk host support.
