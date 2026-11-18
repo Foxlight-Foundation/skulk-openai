@@ -1,6 +1,6 @@
 # Native runtime acquisition preview
 
-This is an authoring input for the `0.6.2` Integrator preview. Operators install
+This is an authoring input for the `0.6.3` Integrator preview. Operators install
 a separately signed release through Skulk; see [first setup](native-setup.md).
 Downloading wheels grants no publisher trust, account access or caller authority.
 
@@ -61,6 +61,7 @@ permissions, trusted publisher signatures and owner authorization.
 
 Three-platform account-free qualification covers signed installation,
 25 populated-state Chat/API/receipt checks and seven independent disconnected
-first-setup checks per platform. Real OpenAI consent, account-backed native
-requests, actual mounted speech and a stable Skulk release retain separate gates.
+first-setup checks per platform. The [native0.6.3 qualification](native-qualification-0.6.3.md) records the later
+account-backed model, compaction and mounted-speech checks. Stable Skulk support
+remains a separate gate.
 A numeric application version is insufficient to identify a compatible host.

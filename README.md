@@ -18,6 +18,14 @@ policy are still validated before provider submission.
 Native refusals also finish the bounded caller upload before closing their
 transport, so a rejected client receives its semantic error reliably.
 
+## Operator manual
+
+The [illustrated operator manual](docs/operator/index.md) covers installation,
+account connection, every setting, Chat and API use, optional compaction,
+privacy and troubleshooting. It describes the native 0.6.3 preview and its
+compatible host requirements. Developer/reference material below also includes
+older managed protocols; use the operator manual for the current installed path.
+
 ## Install and configure
 
 **Install the signed Integrator from the built-in Foxlight capability store.** Use a compatible

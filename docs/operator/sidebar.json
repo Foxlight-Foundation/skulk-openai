@@ -1,0 +1,59 @@
+{
+  "integrator": [
+    {
+      "type": "doc",
+      "id": "index",
+      "label": "Skulk OpenAI Integrator"
+    },
+    {
+      "type": "doc",
+      "id": "getting-started",
+      "label": "Install and connect"
+    },
+    {
+      "type": "doc",
+      "id": "connection",
+      "label": "Manage the connection"
+    },
+    {
+      "type": "doc",
+      "id": "settings",
+      "label": "Models and request defaults"
+    },
+    {
+      "type": "doc",
+      "id": "chat",
+      "label": "Chat and attachments"
+    },
+    {
+      "type": "doc",
+      "id": "api",
+      "label": "Use the unified API"
+    },
+    {
+      "type": "doc",
+      "id": "context",
+      "label": "Context and compaction"
+    },
+    {
+      "type": "doc",
+      "id": "security",
+      "label": "Privacy and access"
+    },
+    {
+      "type": "doc",
+      "id": "troubleshooting",
+      "label": "Troubleshooting"
+    },
+    {
+      "type": "doc",
+      "id": "compatibility",
+      "label": "Compatibility and supported features"
+    },
+    {
+      "type": "doc",
+      "id": "release-notes",
+      "label": "Release notes"
+    }
+  ]
+}

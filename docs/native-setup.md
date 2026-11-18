@@ -6,6 +6,10 @@ notes. Source availability, a signed package, Store publication and stable
 Skulk support are separate facts; the version number `2.0.3` alone does not
 identify a native-capable Skulk build.
 
+For a screenshot-led walkthrough and everyday settings, use the
+[operator manual](operator/getting-started.md). The technical setup details below
+remain available for host configuration and state handling.
+
 ## A new installation
 
 1. In **Plugins**, browse the release source and review **Skulk OpenAI

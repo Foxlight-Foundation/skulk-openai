@@ -1,0 +1,16 @@
+{
+  "application_version": "0.6.3",
+  "application_source": "eaf486e601aa692f1124b56e06947391040fc054",
+  "kind": "actual native management UI and previously completed synthetic Chat conversation",
+  "new_provider_generation_for_capture": false,
+  "contains_account_credentials": false,
+  "images": {
+    "images/connection.jpg": "dc98a0e05324b59efa0bd4fbffe4718f96d18a4873159a221083f20c0da4221c",
+    "images/connection-controls.jpg": "2bb4691b03115931c55cb88a849cdcc567b0317792cdfbf2a5d612dd3f77a64d",
+    "images/models.jpg": "70d9ef2589e0da203eed38f1a972890ed0d4b493bfc2bd5234e81c5edf454c94",
+    "images/continuation.jpg": "b2856776f99866c186dc49cc4e608f526e8f09092365a6665bc8d77b8eeb6fa8",
+    "images/request-defaults.jpg": "debf4c1186e8eec9b609c69501e5685cbd122a8a42f96b203a85129d7c19de54",
+    "images/diagnostics.jpg": "b365cba9b77d5118c5436d45d51687793c1b5e33323b5e9c2e37dc10c805c2a5",
+    "images/chat-code.jpg": "36854d9c6f0d9a7be2907ed122ec3be1a14864cc88846e53a9619af80fdad486"
+  }
+}
