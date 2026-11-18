@@ -33,7 +33,8 @@ Set these example variables in your shell. Use your actual API origin and key; k
 SKULK_API_BASE='http://localhost:52415'
 SKULK_CLIENT_KEY='your-skulk-client-key'
 
-curl --fail-with-body "$SKULK_API_BASE/v1/models"   -H "Authorization: Bearer $SKULK_CLIENT_KEY"
+curl --fail-with-body "$SKULK_API_BASE/v1/models" \
+  -H "Authorization: Bearer $SKULK_CLIENT_KEY"
 ```
 
 Choose an enabled Integrator entry from the result. Its native model ID includes the installed capability identity, callable/version and provider model slug. Copy the complete ID; do not construct it from a display name or replace it with a provider slug.
@@ -43,7 +44,10 @@ Choose an enabled Integrator entry from the result. Its native model ID includes
 Replace the model placeholder with that exact returned ID:
 
 ```sh
-curl --fail-with-body "$SKULK_API_BASE/v1/chat/completions"   -H "Authorization: Bearer $SKULK_CLIENT_KEY"   -H 'Content-Type: application/json'   --data '{
+curl --fail-with-body "$SKULK_API_BASE/v1/chat/completions" \
+  -H "Authorization: Bearer $SKULK_CLIENT_KEY" \
+  -H 'Content-Type: application/json' \
+  --data '{
     "model": "EXACT_MODEL_ID_FROM_SKULK",
     "stream": true,
     "messages": [{"role": "user", "content": "Explain a compute fabric in two sentences."}]
