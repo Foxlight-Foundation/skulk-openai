@@ -7,6 +7,7 @@ original-caller authorization and real-account migration are separate gates.
 import asyncio
 import json
 import secrets
+import tomllib
 from pathlib import Path
 
 import httpx
@@ -70,6 +71,10 @@ def test_native_manifest_admits_all_actual_contract_bindings(mock: bool) -> None
     manifest = build_native_manifest(
         executable="bundle.pyz", executable_sha256="a" * 64, mock=mock
     )
+    project = tomllib.loads(
+        (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
+    )
+    assert manifest["bundle_version"] == project["project"]["version"]
     bindings = native_bindings(mock=mock)
     assert manifest["effect"] == "inference" and len(bindings) == 8
     assert all(
