@@ -14,6 +14,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import struct
 import time
 import zlib
@@ -90,6 +91,7 @@ class _Service(_Wire):
 
 
 class _Installation(_Wire):
+    plugin_id: str | None = None
     release: _Release
     selected_digest: str | None = None
     enabled: bool
@@ -112,6 +114,9 @@ class RuntimeIdentity(Frozen):
     )
     qualified_id: str = Field(description="Advertised chat descriptor and version.")
     revision: str = Field(description="Observed immutable descriptor revision.")
+    plugin_id: str | None = Field(
+        default=None, description="Exact native installation, absent for legacy IDs."
+    )
 
 
 class CaseResult(Frozen):
@@ -272,15 +277,32 @@ class StreamCheck:
 def _runtime(model: _Model, inventory: _Inventory) -> RuntimeIdentity:
     if model.inference_capability is None:
         raise ValueError("Only managed models are eligible")
-    parts = model.id.split("/", 2)
-    if len(parts) != 3 or parts[0] != "capability":
-        raise ValueError("A concrete managed model is required")
     version = model.inference_capability.contract.rsplit("@", 1)[-1]
-    qualified = parts[1] + "@" + version
+    plugin_id: str | None = None
+    if model.id.startswith("native/"):
+        native = model.id.split("/", 3)
+        if len(native) != 4 or not all(native):
+            raise ValueError("A concrete native model is required")
+        _, plugin_id, qualified, _ = native
+        capability, separator, declared_version = qualified.rpartition("@")
+        if not capability or not separator or declared_version != version:
+            raise ValueError("Native descriptor and chat contract versions disagree")
+    else:
+        parts = model.id.split("/", 2)
+        if len(parts) != 3 or parts[0] != "capability" or not all(parts):
+            raise ValueError("A concrete managed model is required")
+        qualified = parts[1] + "@" + version
+    return _installed_runtime(qualified, plugin_id, inventory)
+
+
+def _installed_runtime(
+    qualified: str, plugin_id: str | None, inventory: _Inventory
+) -> RuntimeIdentity:
     matches: list[RuntimeIdentity] = []
     for installation in inventory.installations:
         if (
-            not installation.enabled
+            (plugin_id is not None and installation.plugin_id != plugin_id)
+            or not installation.enabled
             or installation.stale
             or installation.uninstalled
             or installation.service.state != "running"
@@ -290,6 +312,11 @@ def _runtime(model: _Model, inventory: _Inventory) -> RuntimeIdentity:
             continue
         for descriptor in installation.release.registration.capabilities:
             if descriptor.qualified_id == qualified:
+                if (
+                    plugin_id is not None
+                    and re.fullmatch(r"[0-9a-f]{64}", descriptor.revision) is None
+                ):
+                    raise ValueError("Native descriptors require their full revision")
                 matches.append(
                     RuntimeIdentity(
                         bundle=installation.release.bundle_id,
@@ -297,6 +324,7 @@ def _runtime(model: _Model, inventory: _Inventory) -> RuntimeIdentity:
                         digest=installation.selected_digest,
                         qualified_id=qualified,
                         revision=descriptor.revision,
+                        plugin_id=plugin_id,
                     )
                 )
     if len(matches) != 1:
@@ -709,28 +737,22 @@ class Qualification:
             await self.read("/v1/plugins/managed")
         )
         # A replacement during the run invalidates identity-bound aggregate claims.
-        observed = tuple(case.runtime for case in progress.report.cases)
-        active = tuple(
-            RuntimeIdentity(
-                bundle=item.release.bundle_id,
-                version=item.release.bundle_version,
-                digest=item.selected_digest,
-                qualified_id=descriptor.qualified_id,
-                revision=descriptor.revision,
-            )
-            for item in final_inventory.installations
-            if item.enabled
-            and not item.stale
-            and not item.uninstalled
-            and item.service.state == "running"
-            and item.selected_digest is not None
-            and item.selected_digest == item.service.active_digest
-            for descriptor in item.release.registration.capabilities
-        )
+        stable = True
+        for case in progress.report.cases:
+            try:
+                active = _installed_runtime(
+                    case.runtime.qualified_id, case.runtime.plugin_id, final_inventory
+                )
+            except ValueError:
+                stable = False
+                break
+            if active != case.runtime:
+                stable = False
+                break
         current = progress.report.model_copy(
             update={
                 "complete": True,
-                "runtime_stable": all(identity in active for identity in observed),
+                "runtime_stable": stable,
             }
         )
         self._publish(current)
