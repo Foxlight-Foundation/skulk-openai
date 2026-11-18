@@ -95,6 +95,11 @@ browser behavior, independent author setup and separate-node execution retain
 separate qualification requirements. This tool does not modify model capability
 claims, routing policy or compaction profiles.
 
+The continuation parser accepts the documented `response.compaction.compacting`
+progress event only for a pending compaction item under an explicit model profile.
+Progress carries no public text and does not commit a checkpoint. This parser
+support is separate from real-account compaction/headroom qualification.
+
 Maintainers run the credential-free tests with:
 
 ```sh

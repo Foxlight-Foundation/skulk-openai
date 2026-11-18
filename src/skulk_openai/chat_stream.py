@@ -122,6 +122,11 @@ async def chat_events(
                             "function": {"arguments": arguments},
                         }
                     ]
+                elif kind == "response.compaction.compacting":
+                    if capture is None:
+                        raise ValueError("compaction requires protected capture")
+                    # ResponseCapture already bound this metadata to the pending
+                    # compaction item; it must never become public model output.
                 elif kind == "response.completed":
                     value = event.get("response")
                     raw_usage = value.get("usage") if isinstance(value, dict) else None

@@ -151,6 +151,25 @@ class ResponseCapture:
             if index in self.added or not isinstance(item_kind, str):
                 raise ValueError("duplicate canonical item")
             self.added[index] = item
+        elif kind == "response.compaction.compacting":
+            index = _index(event)
+            item = self.added.get(index)
+            sequence = event.get("sequence_number")
+            identifier = event.get("item_id")
+            if (
+                self.profile_revision is None
+                or item is None
+                or item.get("type") != "compaction"
+                or index in self.done
+                or not isinstance(identifier, str)
+                or not identifier
+                or item.get("id") != identifier
+                or type(sequence) is not int
+                or not 0 <= sequence <= 2**53
+            ):
+                raise ValueError("unbound compaction progress")
+            # Sampling progress contains no summary and cannot complete an item.
+            # Only the matching done item and clean terminal may enter custody.
         elif kind == "response.output_item.done":
             index, item = _index(event), _item(event.get("item"))
             added = self.added.get(index)
