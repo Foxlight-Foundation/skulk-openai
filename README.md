@@ -5,10 +5,12 @@ Skulk capability SDK. The capability owns the OpenAI connection, credentials,
 account catalog, provider requests and integration settings. Skulk supplies the
 generic capability host, chat and unified API.
 
-The source `0.6.3` candidate adds validated, private handling of OpenAI's compaction
-progress event. This parser change still needs signed delivery and real-account
-headroom qualification; it does not enable automatic compaction by default.
-The signed Store release remains `0.6.2` until that delivery completes.
+The signed native Store preview is `0.6.3`. It adds validated, private handling
+of OpenAI's compaction progress event. Installed account-backed checks cover the
+ten-model serving matrix, effective compaction for Luna/Sol, and native Chat
+composition with mounted speech. See the exact
+[qualification scope and limits](docs/native-qualification-0.6.3.md).
+Automatic compaction remains opt-in; compatible experimental Core is required.
 
 The native `0.6.2` release accepts both null and empty-string content on
 tool-only assistant messages. Tool calls, matching results and the enabled-tools
@@ -87,7 +89,7 @@ hash-pinned SDK/tools packages; private Git access is unnecessary. Process and
 unsigned-build checks remain distinct from signed installed qualification. The
 experimental [native managed entrypoint](docs/native-managed.md) documents its
 explicit contract bindings, protected state operations and qualification boundary.
-The [native setup guide](docs/native-setup.md) covers the `0.6.2` preview candidate's
+The [native setup guide](docs/native-setup.md) covers the `0.6.3` native preview's
 fresh disconnected installation, existing-state boundary and Chat/API setup.
 
 The optional [model qualification tool](docs/model-qualification.md) plans from
