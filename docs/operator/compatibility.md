@@ -21,7 +21,7 @@ Until a normal Skulk release includes the required host, follow the preview's [p
 | Image, text and PDF input | Supported for accepting models, subject to integration permissions and transport bounds. |
 | Function tools | Supported as client-supplied definitions/calls/results. The client executes them. |
 | Structured output and reasoning summaries | Supported request forms, with model-specific behavior. Summaries are not raw reasoning. |
-| Reasoning effort and verbosity | Integration defaults plus supported explicit request values. |
+| Reasoning effort and verbosity | Reasoning has a supported per-request override; verbosity is an integration setting only. |
 | Speech playback | Through a separately mounted Skulk TTS model. |
 | Protected continuation | Optional storage and client enrollment. |
 | Automatic compaction | Optional, qualified for the recorded Luna/Sol paths. |

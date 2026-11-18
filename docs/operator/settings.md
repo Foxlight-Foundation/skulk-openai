@@ -23,13 +23,13 @@ Disabling a model withdraws it from this integration's available choices. Accoun
 | --- | --- | --- |
 | Developer instructions | A shared instruction baseline prepended to requests through this integration. Application/conversation messages are supplied separately. | Leave blank unless all callers need the same instruction. |
 | Reasoning effort | Supplies a reasoning default when the request omits it. Supported values vary by model. | Provider default. An unsupported choice can be rejected; listing a level does not establish model support. |
-| Response verbosity | Supplies a verbosity default when the request omits it. | Provider default; choose low, medium or high when appropriate to the model. |
-| Function tools | Permits forwarding function definitions and returning model tool calls. | Enabled for fresh installations. The calling application executes the tools. |
+| Response verbosity | Sets verbosity for this integration. The current Chat/API adapter has no per-request verbosity override. | Provider default; choose low, medium or high when appropriate to the model. |
+| Function tools | Permits forwarding function definitions and returning model tool calls. | Disabled for fresh installations. Enable and save it before using an application that supplies tools. The calling application executes them. |
 | Image input | Permits supported inline image input; PDF support also depends on image permission. | Enabled for fresh installations. |
 | Limit output length | Opts into a local **character** ceiling, including text, reasoning summaries and tool arguments. | Off. This is not a token limit, a context window or a billing cap. |
 | Limit request rate | Opts into a shared local request-attempt ceiling per hour. | Off. This is separate from OpenAI's allowance. |
 
-An explicit request value takes precedence over the corresponding reasoning or verbosity default. Integration permissions still apply: a caller cannot turn a denied feature back on by adding a request field.
+An explicit supported `reasoning_effort` request value takes precedence over the integration's reasoning default. Change verbosity in this settings page; sending a `verbosity` request field is rejected by the current adapter. Integration permissions still apply: a caller cannot turn a denied feature back on by adding a request field.
 
 ## Instructions and output formats
 
@@ -39,7 +39,7 @@ For structured output, an API caller supplies its response format/schema per req
 
 ## Reasoning summaries
 
-Reasoning effort influences how the model approaches the task. A requested reasoning summary is separate displayable output; it is not raw internal reasoning. The current dashboard settings do not provide a dedicated summary control. Applications can request supported summary behavior through the compatible Chat/API contract.
+Reasoning effort influences how the model approaches the task. When an effort is set through the integration or a request, the adapter also requests an automatic reasoning summary. Any returned summary is separate displayable output, not raw internal reasoning. This version has no independent summary setting or request field; summary availability depends on the model.
 
 ## What these controls cannot enable
 

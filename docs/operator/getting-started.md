@@ -54,6 +54,8 @@ Models load automatically after consent. **Follow ChatGPT app settings** is the 
 
 Start with one model if you are unsure. You can change the selection later. [Settings](settings.md) explains request defaults and optional local ceilings.
 
+If your application supplies function tools, enable **Function tools** in **Request defaults** and save. Fresh installations leave that permission off; the screenshot of request defaults shows an already configured example.
+
 ## 4 Approve Skulk's gateway
 
 An account connection lets the capability contact OpenAI. It does not authorize Skulk to use the account yet.

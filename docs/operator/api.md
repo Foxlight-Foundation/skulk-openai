@@ -54,6 +54,8 @@ Use `stream: false` for a collected Chat Completions response. The capability st
 
 Function tools and structured output use the compatible Chat Completions request fields. Keep assistant tool calls and matching tool-result messages together in later history. The calling application owns execution and permissions.
 
+Enable and save **Function tools** in the Integrator first; fresh installations leave it off. For reasoning overrides, the current request contract accepts `reasoning_effort` values `none`, `minimal`, `low`, `medium`, `high` and `xhigh`, subject to model support. It does not accept a per-request `verbosity` or independent reasoning-summary field. Set verbosity in **Request defaults**.
+
 For all endpoint parameters, use the [Skulk unified API reference](https://docs.foxlight.ai/skulk/next/api-guide/). This manual explains the capability-specific setup rather than maintaining a second generic API specification.
 
 ## Revoke a client
