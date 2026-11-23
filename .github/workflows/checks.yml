@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
@@ -19,6 +19,7 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: "0.12.23"
+          python-version: "3.13"
       - run: uv sync --frozen
       - run: uv run basedpyright
       - run: uv run ruff check
@@ -33,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
@@ -41,6 +42,7 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: "0.12.23"
+          python-version: "3.13"
       - run: uv sync --frozen --group managed --group native-runtime
       - run: uv run --no-sync basedpyright --project pyrightconfig.managed.json
       - run: uv run --no-sync pytest tests_managed
@@ -55,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
@@ -77,3 +79,29 @@ jobs:
           Path("manifest.json").write_text(manifest.model_dump_json())
           PY
           .author-venv/bin/skulk-cap build --project . --output "$RUNNER_TEMP/openai-mock-build"
+      - name: Build the native SDK1 candidate without private owner imports
+        env:
+          NATIVE_PROJECT: ${{ runner.temp }}/openai-native-project
+          NATIVE_OUTPUT: ${{ runner.temp }}/openai-native-build
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src .author-venv/bin/python - <<'PY'
+          import importlib.util, json, os, shutil
+          from pathlib import Path
+          from skulk_openai.native_contracts import build_native_manifest
+          assert importlib.util.find_spec('skulk_capability_nodes') is None
+          assert importlib.util.find_spec('skulk') is None
+          root = Path(os.environ['NATIVE_PROJECT'])
+          root.mkdir(mode=0o700)
+          shutil.copytree('src', root / 'src')
+          shutil.copyfile('LICENSE', root / 'LICENSE')
+          shutil.copyfile('capability-native.toml', root / 'capability.toml')
+          manifest = build_native_manifest(executable='bundle.pyz', executable_sha256='0'*64, mock=True)
+          (root / 'manifest.json').write_text(json.dumps(manifest))
+          PY
+          .author-venv/bin/skulk-cap build --native --project "$NATIVE_PROJECT" --output "$NATIVE_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sdk1-native-author-${{ matrix.os }}
+          path: ${{ runner.temp }}/openai-native-build
+          if-no-files-found: error

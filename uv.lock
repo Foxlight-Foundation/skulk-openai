@@ -1455,54 +1455,118 @@ wheels = [
 
 [[package]]
 name = "skulk-capability-kernel"
-version = "0.7.0rc4"
-source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.4/skulk_capability_kernel-0.7.0rc4-cp313-abi3-macosx_11_0_arm64.whl" }
+version = "0.7.0rc7"
+source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-macosx_11_0_arm64.whl" }
 resolution-markers = [
     "platform_machine == 'arm64' and sys_platform == 'darwin'",
 ]
 wheels = [
-    { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.4/skulk_capability_kernel-0.7.0rc4-cp313-abi3-macosx_11_0_arm64.whl", hash = "sha256:b6f17739d9f49a488194c73a57cbd525c8faab19497c716e0c4ec2a58520d391" },
+    { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-macosx_11_0_arm64.whl", hash = "sha256:8b77f0e30457c7b6a3c49d477464b657fc26dc81ddeec31ba32843886fe3e0fc" },
 ]
 
 [[package]]
 name = "skulk-capability-kernel"
-version = "0.7.0rc4"
-source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.4/skulk_capability_kernel-0.7.0rc4-cp313-abi3-manylinux_2_34_aarch64.whl" }
+version = "0.7.0rc7"
+source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-manylinux_2_34_aarch64.whl" }
 resolution-markers = [
     "platform_machine == 'aarch64' and sys_platform == 'linux'",
 ]
 wheels = [
-    { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.4/skulk_capability_kernel-0.7.0rc4-cp313-abi3-manylinux_2_34_aarch64.whl", hash = "sha256:c4f2c27755ce3545a593f98941eaa3b56f07b185e06b2b76197798096a1a97e3" },
+    { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-manylinux_2_34_aarch64.whl", hash = "sha256:7bae8593f19f067c420b4d906f85076aeda1c3b51fe3e4bda4d1c7ceaabb615b" },
 ]
 
 [[package]]
 name = "skulk-capability-kernel"
-version = "0.7.0rc4"
-source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.4/skulk_capability_kernel-0.7.0rc4-cp313-abi3-manylinux_2_34_x86_64.whl" }
+version = "0.7.0rc7"
+source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-manylinux_2_34_x86_64.whl" }
 resolution-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux'",
 ]
 wheels = [
-    { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.4/skulk_capability_kernel-0.7.0rc4-cp313-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:68f7fe9ed6448d68dea4bbe9a8fc12fad7c89f7b3a6102cf69ca1d6119a88f36" },
+    { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:d56b3a2e61571db4f56884c1bf5ed1119479f158f1d4a70e243fc52acffea129" },
 ]
 
 [[package]]
 name = "skulk-capability-nodes"
-version = "0.10.5"
-source = { url = "https://skulkapps.foxlight.ai/releases/reference.openai/42378358083/macos-arm64/skulk_capability_nodes-0.10.5-py3-none-any.whl" }
+version = "0.18.0rc8"
+source = { url = "https://skulkapps.foxlight.ai/releases/foxlight.sdk-reference/45233353911/macos-arm64/skulk_capability_nodes-0.18.0rc8-py3-none-any.whl" }
 dependencies = [
     { name = "anyio" },
     { name = "cryptography" },
+    { name = "h11" },
     { name = "httpx" },
     { name = "jsonschema" },
     { name = "keyring" },
     { name = "packaging" },
+    { name = "psutil" },
     { name = "pydantic" },
+    { name = "referencing" },
+    { name = "skulk-capability-kernel", version = "0.7.0rc7", source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-macosx_11_0_arm64.whl" }, marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+    { name = "skulk-capability-kernel", version = "0.7.0rc7", source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-manylinux_2_34_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "skulk-capability-kernel", version = "0.7.0rc7", source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-manylinux_2_34_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "skulk-capability-sdk" },
+]
+wheels = [
+    { url = "https://skulkapps.foxlight.ai/releases/foxlight.sdk-reference/45233353911/macos-arm64/skulk_capability_nodes-0.18.0rc8-py3-none-any.whl", hash = "sha256:635ddd1ab2cd47be0bcda729f4b31058bbdc1982cd44fad89a5938eb0b1576bf" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anyio", specifier = ">=4.14.2,<5" },
+    { name = "cryptography", specifier = ">=50.0.2,<51" },
+    { name = "h11", specifier = ">=0.16,<1" },
+    { name = "httpx", specifier = ">=0.28.1,<1" },
+    { name = "jsonschema", specifier = ">=4.26,<5" },
+    { name = "keyring", specifier = ">=25,<26" },
+    { name = "packaging", specifier = ">=24" },
+    { name = "psutil", specifier = ">=7.2.2,<8" },
+    { name = "pydantic", specifier = ">=2.12,<3" },
+    { name = "referencing", specifier = ">=0.36" },
+    { name = "securesystemslib", marker = "extra == 'store'", specifier = "==1.4.0" },
+    { name = "skulk-capability-kernel", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')", specifier = ">=0.6.0rc1,<0.8" },
+    { name = "skulk-capability-sdk", specifier = ">=0.5.15rc1,<0.6" },
+    { name = "skulk-capability-tools", marker = "extra == 'store'", specifier = "==0.2.0rc4" },
+    { name = "tuf", marker = "extra == 'store'", specifier = "==6.0.0" },
+]
+provides-extras = ["store"]
+
+[[package]]
+name = "skulk-capability-sdk"
+version = "0.5.16rc1"
+source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.16-rc.1/skulk_capability_sdk-0.5.16rc1-py3-none-any.whl" }
+dependencies = [
+    { name = "jsonschema" },
+    { name = "packaging" },
+    { name = "pydantic" },
+]
+wheels = [
+    { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.16-rc.1/skulk_capability_sdk-0.5.16rc1-py3-none-any.whl", hash = "sha256:f61591b608e2f3991ad4052ce607ef57af9384c880b81472dc1fc3b897e4a15f" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", marker = "extra == 'native-discovery'", specifier = ">=0.28.1,<1" },
+    { name = "jsonschema", specifier = ">=4.26,<5" },
+    { name = "keyring", marker = "extra == 'native-credentials'", specifier = ">=25,<26" },
+    { name = "packaging", specifier = ">=24" },
+    { name = "pydantic", specifier = ">=2.12,<3" },
+]
+provides-extras = ["native-credentials", "native-discovery"]
+
+[[package]]
+name = "skulk-capability-tools"
+version = "0.2.0rc4"
+source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.16-rc.1/skulk_capability_tools-0.2.0rc4-py3-none-any.whl" }
+dependencies = [
+    { name = "anyio" },
+    { name = "cryptography" },
+    { name = "httpx" },
+    { name = "keyring" },
     { name = "referencing" },
     { name = "skulk-capability-sdk" },
 ]
 wheels = [
-    { url = "https://skulkapps.foxlight.ai/releases/reference.openai/42378358083/macos-arm64/skulk_capability_nodes-0.10.5-py3-none-any.whl", hash = "sha256:9559485eff0b44343d7b2cdd2c2cf5eaf836a7be5bb54a0f9d9747916c61ae3a" },
+    { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.16-rc.1/skulk_capability_tools-0.2.0rc4-py3-none-any.whl", hash = "sha256:4bc535e6f32839a4a8466b841c1d687041af53ef980fcf23cfdb8b923ecd0958" },
 ]
 
 [package.metadata]
@@ -1510,42 +1574,14 @@ requires-dist = [
     { name = "anyio", specifier = ">=4.14.2,<5" },
     { name = "cryptography", specifier = ">=50.0.2,<51" },
     { name = "httpx", specifier = ">=0.28.1,<1" },
-    { name = "jsonschema", specifier = ">=4.26,<5" },
     { name = "keyring", specifier = ">=25,<26" },
-    { name = "packaging", specifier = ">=24" },
-    { name = "pydantic", specifier = ">=2.12,<3" },
-    { name = "referencing", specifier = ">=0.36" },
-    { name = "securesystemslib", marker = "extra == 'store'", specifier = "==1.4.0" },
-    { name = "skulk-capability-sdk", specifier = ">=0.5.5,<0.6" },
-    { name = "tuf", marker = "extra == 'store'", specifier = "==6.0.0" },
+    { name = "referencing", specifier = ">=0.37,<1" },
+    { name = "skulk-capability-sdk", specifier = ">=0.5.15rc1,<0.6" },
 ]
-provides-extras = ["store"]
-
-[[package]]
-name = "skulk-capability-sdk"
-version = "0.5.10rc1"
-source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.10-rc.1/skulk_capability_sdk-0.5.10rc1-py3-none-any.whl" }
-dependencies = [
-    { name = "jsonschema" },
-    { name = "packaging" },
-    { name = "pydantic" },
-]
-wheels = [
-    { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.10-rc.1/skulk_capability_sdk-0.5.10rc1-py3-none-any.whl", hash = "sha256:db8341895b1eb7f6dffebf5a3669b80d0125cd5e8c2e19cf1c951fa22ff849e9" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "jsonschema", specifier = ">=4.26,<5" },
-    { name = "keyring", marker = "extra == 'native-credentials'", specifier = ">=25,<26" },
-    { name = "packaging", specifier = ">=24" },
-    { name = "pydantic", specifier = ">=2.12,<3" },
-]
-provides-extras = ["native-credentials"]
 
 [[package]]
 name = "skulk-openai"
-version = "0.6.3"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },
@@ -1568,9 +1604,9 @@ managed = [
     { name = "skulk-capability-sdk" },
 ]
 native-runtime = [
-    { name = "skulk-capability-kernel", version = "0.7.0rc4", source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.4/skulk_capability_kernel-0.7.0rc4-cp313-abi3-macosx_11_0_arm64.whl" }, marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
-    { name = "skulk-capability-kernel", version = "0.7.0rc4", source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.4/skulk_capability_kernel-0.7.0rc4-cp313-abi3-manylinux_2_34_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "skulk-capability-kernel", version = "0.7.0rc4", source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.4/skulk_capability_kernel-0.7.0rc4-cp313-abi3-manylinux_2_34_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "skulk-capability-kernel", version = "0.7.0rc7", source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-macosx_11_0_arm64.whl" }, marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+    { name = "skulk-capability-kernel", version = "0.7.0rc7", source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-manylinux_2_34_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "skulk-capability-kernel", version = "0.7.0rc7", source = { url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-manylinux_2_34_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "skulk-capability-sdk" },
 ]
 publisher = [
@@ -1583,10 +1619,13 @@ publisher = [
     { name = "psutil" },
     { name = "pyyaml" },
     { name = "rustworkx" },
-    { name = "skulk-capability-nodes" },
     { name = "skulk-capability-sdk" },
+    { name = "skulk-capability-tools" },
     { name = "tomlkit" },
     { name = "tuf" },
+]
+runtime = [
+    { name = "skulk-capability-nodes" },
 ]
 
 [package.metadata]
@@ -1607,12 +1646,12 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=1.2,<2" },
     { name = "ruff", specifier = ">=0.13,<1" },
 ]
-managed = [{ name = "skulk-capability-sdk", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.10-rc.1/skulk_capability_sdk-0.5.10rc1-py3-none-any.whl" }]
+managed = [{ name = "skulk-capability-sdk", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.16-rc.1/skulk_capability_sdk-0.5.16rc1-py3-none-any.whl" }]
 native-runtime = [
-    { name = "skulk-capability-kernel", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.4/skulk_capability_kernel-0.7.0rc4-cp313-abi3-macosx_11_0_arm64.whl" },
-    { name = "skulk-capability-kernel", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.4/skulk_capability_kernel-0.7.0rc4-cp313-abi3-manylinux_2_34_aarch64.whl" },
-    { name = "skulk-capability-kernel", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.4/skulk_capability_kernel-0.7.0rc4-cp313-abi3-manylinux_2_34_x86_64.whl" },
-    { name = "skulk-capability-sdk", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.10-rc.1/skulk_capability_sdk-0.5.10rc1-py3-none-any.whl" },
+    { name = "skulk-capability-kernel", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-macosx_11_0_arm64.whl" },
+    { name = "skulk-capability-kernel", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-manylinux_2_34_aarch64.whl" },
+    { name = "skulk-capability-kernel", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-manylinux_2_34_x86_64.whl" },
+    { name = "skulk-capability-sdk", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.16-rc.1/skulk_capability_sdk-0.5.16rc1-py3-none-any.whl" },
 ]
 publisher = [
     { name = "aiofiles", specifier = "==25.1.0" },
@@ -1624,11 +1663,12 @@ publisher = [
     { name = "psutil", specifier = ">=7.2.2" },
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "rustworkx", specifier = "==0.17.1" },
-    { name = "skulk-capability-nodes", url = "https://skulkapps.foxlight.ai/releases/reference.openai/42378358083/macos-arm64/skulk_capability_nodes-0.10.5-py3-none-any.whl" },
-    { name = "skulk-capability-sdk", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.10-rc.1/skulk_capability_sdk-0.5.10rc1-py3-none-any.whl" },
+    { name = "skulk-capability-sdk", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.16-rc.1/skulk_capability_sdk-0.5.16rc1-py3-none-any.whl" },
+    { name = "skulk-capability-tools", url = "https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.16-rc.1/skulk_capability_tools-0.2.0rc4-py3-none-any.whl" },
     { name = "tomlkit", specifier = "==0.14.0" },
     { name = "tuf", specifier = "==6.0.0" },
 ]
+runtime = [{ name = "skulk-capability-nodes", url = "https://skulkapps.foxlight.ai/releases/foxlight.sdk-reference/45233353911/macos-arm64/skulk_capability_nodes-0.18.0rc8-py3-none-any.whl" }]
 
 [[package]]
 name = "starlette"

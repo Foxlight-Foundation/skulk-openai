@@ -547,13 +547,22 @@ secretstorage==3.5.0 ; sys_platform == 'linux' \
     --hash=sha256:0ce65888c0725fcb2c5bc0fdb8e5438eece02c523557ea40ce0703c266248137 \
     --hash=sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be
     # via keyring
-skulk-capability-sdk @ https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.10-rc.1/skulk_capability_sdk-0.5.10rc1-py3-none-any.whl \
-    --hash=sha256:db8341895b1eb7f6dffebf5a3669b80d0125cd5e8c2e19cf1c951fa22ff849e9
+skulk-capability-kernel @ https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-macosx_11_0_arm64.whl ; platform_machine == 'arm64' and sys_platform == 'darwin' \
+    --hash=sha256:8b77f0e30457c7b6a3c49d477464b657fc26dc81ddeec31ba32843886fe3e0fc
+    # via -r authoring/requirements.in
+skulk-capability-kernel @ https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-manylinux_2_34_aarch64.whl ; platform_machine == 'aarch64' and sys_platform == 'linux' \
+    --hash=sha256:7bae8593f19f067c420b4d906f85076aeda1c3b51fe3e4bda4d1c7ceaabb615b
+    # via -r authoring/requirements.in
+skulk-capability-kernel @ https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/native-v0.7.0-rc.7/skulk_capability_kernel-0.7.0rc7-cp313-abi3-manylinux_2_34_x86_64.whl ; platform_machine == 'x86_64' and sys_platform == 'linux' \
+    --hash=sha256:d56b3a2e61571db4f56884c1bf5ed1119479f158f1d4a70e243fc52acffea129
+    # via -r authoring/requirements.in
+skulk-capability-sdk @ https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.16-rc.1/skulk_capability_sdk-0.5.16rc1-py3-none-any.whl \
+    --hash=sha256:f61591b608e2f3991ad4052ce607ef57af9384c880b81472dc1fc3b897e4a15f
     # via
     #   -r authoring/requirements.in
     #   skulk-capability-tools
-skulk-capability-tools @ https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.7/skulk_capability_tools-0.1.0-py3-none-any.whl \
-    --hash=sha256:5a87fa21c995a78a881f334b4d1b9b1b3abd5e36e1ec3c8f97f4bd6a017d7ac3
+skulk-capability-tools @ https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.16-rc.1/skulk_capability_tools-0.2.0rc4-py3-none-any.whl \
+    --hash=sha256:4bc535e6f32839a4a8466b841c1d687041af53ef980fcf23cfdb8b923ecd0958
     # via -r authoring/requirements.in
 typing-extensions==4.16.0 \
     --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \

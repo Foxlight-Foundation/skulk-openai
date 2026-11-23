@@ -1,0 +1,128 @@
+{
+  "source": "3665e3e808bb3bdb9e4de6d67f8b6b62b52d8fd1",
+  "sdk": "0.5.10rc1",
+  "kernel": "0.7.0rc4",
+  "settings_defaults_sha256": "dc2c05df1854fd6b5fbc7731ed7c3a1ad0be2ae91cd4e7983fb98b4b8e8fa7a2",
+  "False": {
+    "manifest_without_bundle_version_sha256": "15d7c625e595cab8558f61d836378551c86690a0b4180520be2f7dfa7897e4af",
+    "bindings": [
+      {
+        "legacy_id": "openai.inference.offers",
+        "version": "0.1.0",
+        "legacy_revision": "af33db2ce3947385",
+        "native_id": "openai.native.offers",
+        "native_revision": "97ca96f863bbadae2e14845c4dc37d612e1af8ca3bcf7ae7d123b06d8789d688"
+      },
+      {
+        "legacy_id": "openai.inference.generate",
+        "version": "0.1.0",
+        "legacy_revision": "0909659c40f3e0f1",
+        "native_id": "openai.native.generate",
+        "native_revision": "d5996721206f232fd964bf90c20ae1171b276ad04abd38c21fb0d52310b39085"
+      },
+      {
+        "legacy_id": "openai.inference.status",
+        "version": "0.1.0",
+        "legacy_revision": "5c9e6f70ce4f9666",
+        "native_id": "openai.native.status",
+        "native_revision": "8c5386670942f18eae88be171443fed1456e4bbc55f3fba2747d2534e4c45f31"
+      },
+      {
+        "legacy_id": "openai.inference.chat-catalog",
+        "version": "0.1.0",
+        "legacy_revision": "f0bed324acc127db",
+        "native_id": "openai.native.chat-catalog",
+        "native_revision": "5cd1f5896e317612aeb0e96baeb6639b1de96ecbd6e9c550e0ad7ac9a6786e08"
+      },
+      {
+        "legacy_id": "openai.inference.chat",
+        "version": "0.1.0",
+        "legacy_revision": "4fe13d582a582380",
+        "native_id": "openai.native.chat",
+        "native_revision": "3faa90119362556e8ea6d19f9aa92e97c113baa094923cc05c450b475bc28bcb"
+      },
+      {
+        "legacy_id": "openai.inference.chat-catalog-v2",
+        "version": "0.2.0",
+        "legacy_revision": "a5327ab909607ccb",
+        "native_id": "openai.native.chat-catalog-v2",
+        "native_revision": "19692fa88c264a9f4feea4a80c7239c39b0a0fda5c482f049912d5efb1546c74"
+      },
+      {
+        "legacy_id": "openai.inference.chat",
+        "version": "0.2.0",
+        "legacy_revision": "7b86044adf42c8fe",
+        "native_id": "openai.native.chat",
+        "native_revision": "a126f2e656102381afa6734e336ad145f740c5224fafe9c987ee80ab0de20589"
+      },
+      {
+        "legacy_id": "openai.inference.continuation",
+        "version": "0.1.0",
+        "legacy_revision": "7d848b002af92fde",
+        "native_id": "openai.native.continuation",
+        "native_revision": "99a46a45b57dfa135749d8bbea47ea12916b5124bb644c9aa2fd1b7de3050b77"
+      }
+    ]
+  },
+  "True": {
+    "manifest_without_bundle_version_sha256": "a90e152810d14e7b0e9385be96879cdfe7c3f7f8a29020b8a866c9fb8a109f09",
+    "bindings": [
+      {
+        "legacy_id": "mock-openai.guarded.offers",
+        "version": "0.1.0",
+        "legacy_revision": "e0c8a75ad3a3ba2c",
+        "native_id": "mock-openai.native.offers",
+        "native_revision": "75deff2a9856e4f295a0408f55a87ff1d997426ed6364169dce43aed8068300c"
+      },
+      {
+        "legacy_id": "mock-openai.guarded.generate",
+        "version": "0.1.0",
+        "legacy_revision": "0875486516e23944",
+        "native_id": "mock-openai.native.generate",
+        "native_revision": "5b0d80e85edcb01fe9b3d8ac4f6c17d5163ff1765eaa713a7e8fc2fc66586465"
+      },
+      {
+        "legacy_id": "mock-openai.guarded.status",
+        "version": "0.1.0",
+        "legacy_revision": "413ee1aaf57efbf3",
+        "native_id": "mock-openai.native.status",
+        "native_revision": "f44a47a5fb05b933d3868d4e1e58b3c3f45ce7022876283a1f16fe132aa8ee9a"
+      },
+      {
+        "legacy_id": "mock-openai.guarded.chat-catalog",
+        "version": "0.1.0",
+        "legacy_revision": "0e5870c8e04cd911",
+        "native_id": "mock-openai.native.chat-catalog",
+        "native_revision": "78e48268fb260a82f816c423100c85a873b5248ee92315679a4dc3be55859b54"
+      },
+      {
+        "legacy_id": "mock-openai.guarded.chat",
+        "version": "0.1.0",
+        "legacy_revision": "7b6f14e1f45968af",
+        "native_id": "mock-openai.native.chat",
+        "native_revision": "ef016ee517cdd17c085d76d541931bd52691b5bfe91d0938a0e9aecea1177657"
+      },
+      {
+        "legacy_id": "mock-openai.guarded.chat-catalog-v2",
+        "version": "0.2.0",
+        "legacy_revision": "a735509102295a4c",
+        "native_id": "mock-openai.native.chat-catalog-v2",
+        "native_revision": "e6812a6ef2274366bc47cafd09b912b8f81932d12752aa8b3b1a602a88783ada"
+      },
+      {
+        "legacy_id": "mock-openai.guarded.chat",
+        "version": "0.2.0",
+        "legacy_revision": "6f79f1c7f0728beb",
+        "native_id": "mock-openai.native.chat",
+        "native_revision": "014fd8169255698d152788b16cd8028071b1a823c74bdb7350afbabb4f6e3c97"
+      },
+      {
+        "legacy_id": "mock-openai.guarded.continuation",
+        "version": "0.1.0",
+        "legacy_revision": "b3e7dd491c9d7d5a",
+        "native_id": "mock-openai.native.continuation",
+        "native_revision": "17d27283ac2815e3766567110638063cac857fa7a110a15c28e8fd51c48cfb6b"
+      }
+    ]
+  }
+}
