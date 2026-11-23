@@ -1,25 +1,20 @@
 # Build the Integrator with public author tools
 
-The MIT Python SDK and author tools are available as immutable anonymous
-packages. No GitHub account, SDK account, private repository, provider account,
-model, GPU or fleet lease is needed for the steps below. This repository remains
-Apache-2.0; the separately licensed owner runtime stays outside its source bundle.
+The MIT Python SDK and author tools are immutable anonymous packages. No GitHub
+account, private repository, provider account, model, GPU or fleet lease is
+needed for the steps below. This application remains Apache-2.0; the separately
+licensed owner runtime stays outside its source bundle and author environment.
 
-The earlier installed runtime qualified owner 0.10.5 and SDK 0.5.5. This source
-candidate explicitly selects public SDK 0.5.10rc1 for its process and author
-checks; it does not reissue that installed runtime. Tools remain 0.1.0, and the
-legacy publisher group still selects owner 0.10.5. Native packaging requires a
-separate compatible owner candidate; see [native managed adoption](native-managed.md).
-The SDK/owner wheel files are
-universal Python wheels even though their immutable origin directory is named
-for the publishing runner; native dependencies are selected for the target
-platform by the lock. Supported release targets remain macOS arm64 and glibc
-Linux x86_64/aarch64. Tools and the qualified owner belong
-in separate environments because their SDK version requirements differ.
+The initiative's `0.7.0` source candidate selects SDK `0.5.16rc1`, tools
+`0.2.0rc4` and compiled kernel `0.7.0rc7`. Its separately selected runtime owner
+is `0.18.0rc8`. See [SDK1 adoption](sdk1-adoption.md) for scope and acceptance
+boundaries. These source inputs do not reissue the signed `0.6.3` Store preview.
+Supported native targets are macOS ARM64 and glibc Linux x86_64/ARM64, with
+glibc 2.34 or later on Linux.
 
 ## Install and check the reference
 
-From this source checkout, using Python 3.13 and uv:
+From this candidate checkout, using Python 3.13 and uv:
 
 ```sh
 uv sync --frozen --group managed --group native-runtime
@@ -35,113 +30,100 @@ uv pip install --python .author-venv/bin/python --require-hashes \
 .author-venv/bin/skulk-cap --version
 ```
 
-`authoring/requirements.txt` pins the complete portable author dependency set,
-including the two public release wheels. `authoring/sdk-only.txt` selects the
-new SDK for the separate compatibility check in CI. Neither installs the owner
-or imports private owner modules. To refresh the author dependency lock deliberately:
+`authoring/requirements.txt` pins the complete author dependency set, including
+the public SDK, tools and platform-selected native kernel. Neither author lock
+installs Core or the owner. `authoring/sdk-only.txt` selects the same SDK for an
+independent managed-process check in CI. Refresh the author lock deliberately:
 
 ```sh
 uv pip compile authoring/requirements.in --python-version 3.13 --universal \
   --generate-hashes --no-strip-extras --output-file authoring/requirements.txt
 ```
 
-Core, managed process and author build jobs run independently on macOS and Linux.
-Process checks use synthetic identities and finite mock upstream responses. They
-cannot establish signed installed behavior or real provider access.
+Core, managed-process and author-build jobs run independently on all three
+targets. Process checks use synthetic identities and mock upstream responses;
+they do not establish signed installation or real provider access.
 
 ## Build an account-free candidate
 
-Set `INTEGRATOR_BUILD` to a new absolute directory outside the checkout. Keep it
-private. Generate the distinct mock identity and build its source archive:
+Set `INTEGRATOR_BUILD` to a new absolute directory outside the checkout. Stage
+the native spec under the public CLI's `capability.toml` filename; this leaves
+the checkout's legacy example spec unchanged.
 
 ```sh
 umask 077
 mkdir "$INTEGRATOR_BUILD"
+export INTEGRATOR_BUILD
 PYTHONPATH=src .author-venv/bin/python - <<'PY'
+import importlib.util
+import json
+import os
+import shutil
 from pathlib import Path
-from skulk_openai.managed import build_manifest, validate_manifest
+from skulk_openai.native_contracts import build_native_manifest
 
-manifest = build_manifest(
+assert importlib.util.find_spec("skulk") is None
+assert importlib.util.find_spec("skulk_capability_nodes") is None
+project = Path(os.environ["INTEGRATOR_BUILD"]) / "project"
+project.mkdir(mode=0o700)
+shutil.copytree("src", project / "src")
+shutil.copyfile("LICENSE", project / "LICENSE")
+shutil.copyfile("capability-native.toml", project / "capability.toml")
+manifest = build_native_manifest(
     executable="bundle.pyz", executable_sha256="0" * 64, mock=True
 )
-validate_manifest(manifest)
-Path("manifest.json").write_text(manifest.model_dump_json())
+(project / "manifest.json").write_text(json.dumps(manifest))
 PY
-.author-venv/bin/skulk-cap build --project . \
+.author-venv/bin/skulk-cap build --native \
+  --project "$INTEGRATOR_BUILD/project" \
   --output "$INTEGRATOR_BUILD/unsigned"
 ```
 
-The builder validates the manifest, deterministic source archive and import
-closure. This experimental branch's lock deliberately selects prereleases;
-tools 0.1.0 does not admit them for runtime wheelhouse/signing. The source build
-above is qualified, while public native packaging needs a coordinated tools/owner
-refresh. Do not substitute dependency bytes or describe this source archive as an
-installable native release.
+The builder validates the actual native declaration, deterministic source archive
+and import closure. The mock has independent bundle and callable identities.
+Generating its manifest does not connect an account or grant execution.
 
-For the released legacy wheelhouse and signing recipe, use the qualified release's
-source and lock. Wheelhouse acquisition verifies every selected hash and requires
-binary compatibility with the current platform. It does not build Core or the
-owner from source. Repeat on each target before making a qualification claim.
+## Explicit native runtime inputs
 
-The generated `manifest.json` is a local build input, not account state or a
-signed release. Remove it after the build. For a real release, omit `mock=True`
-only after reviewing the live contract and following the separate account and
-installed qualification requirements. Merely importing the factory or building
-the archive does not connect an account.
+The [SDK/tools candidate release](https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/tag/v0.5.16-rc.1)
+provides native runtime-five/catalog-four authoring. The SDK wheel SHA-256 is
+`f61591b608e2f3991ad4052ce607ef57af9384c880b81472dc1fc3b897e4a15f`.
+Read its [native publishing contract](https://github.com/Foxlight-Foundation/skulk-capability-sdk/blob/51cfa35e1ec7546163b0c9e2af0f546886c8893d/docs/native-publishing.md).
 
-## Explicit native candidate tools
+For a candidate runtime wheelhouse, select the owner root and this application's
+additional requirements from its committed lock:
 
-The [SDK0.5.12rc1 / tools0.2.0rc2 prerelease](https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/tag/v0.5.12-rc.1)
-provides explicit native runtime5/catalog4 authoring and acquisition. Select it
-separately from the legacy recipe above. Read the [native publishing contract](https://github.com/Foxlight-Foundation/skulk-capability-sdk/blob/316bac7a41381d326874b8caee2f71406595ac01/docs/native-publishing.md)
-and the [versioned native runtime acquisition guide](native-runtime.md).
+```sh
+.author-venv/bin/skulk-cap wheelhouse --native-candidate \
+  --lock uv.lock --root skulk-capability-nodes \
+  --spec capability-native.toml --output "$INTEGRATOR_BUILD/wheelhouse"
+```
 
-This reference's `capability-native.toml` requires public SDK `0.5.10rc1`,
-whose wheel SHA256 is
-`db8341895b1eb7f6dffebf5a3669b80d0125cd5e8c2e19cf1c951fa22ff849e9`.
-That application requirement remains distinct from the SDK/tools workspace's
-version. The native runtime recipes fix owner `0.18.0rc3`, SDK `0.5.10rc1`
-and kernel `0.7.0rc4`, including exact transitive wheels for each platform.
-Keep author tools, application runtime and publisher trust separate.
+The complete closure includes PyJWT as well as the owner, SDK, compiled kernel
+and transitive dependencies. A generic SDK-reference owner recipe alone lacks
+these application additions. The [0.6.3 acquisition guide](native-runtime.md)
+documents a different issued closure and must not be substituted here. Keep
+author tools, application runtime and publisher trust separate. Wheel acquisition
+checks every selected size and digest and never builds private source.
 
-Use `capability-native.toml` and
-`skulk_openai.native_contracts.build_native_manifest`.
-`capability-build --inference-runtime` selects the compiled native declaration;
-`capability-wheelhouse --native-candidate` admits the explicitly pinned
-prereleases and native Linux floor. Neither grants execution or an account.
-For an author experiment, use the distinct synthetic bundle, a disposable key
-and a new explicit state directory. Preserve every existing account store.
+## Sign, publish and install separately
 
-The released public tools independently build the real reference, verify signed
-native metadata and acquire the complete runtime without private Git access.
-Account-free installed qualification covers macOS ARM64 and Linux glibc
-x86_64/ARM64. Production Store trust, a compatible stable Skulk release and
-account-backed native inference remain separate gates.
+Use the public CLI's explicit native signing/catalog options and the reviewed
+release policy. `skulk-cap sign --help`, `catalog --help`, `runtime --help` and
+`inspect --help` describe their separate inputs. Source bytes, wheel acquisition,
+signatures, installer admission, child readiness and successful calls are
+independent checks. Anonymous package access grants no publisher trust or host
+authority. The candidate is not a stable SDK1 or Skulk release.
 
-## Sign, publish and install
+For an author experiment use the distinct mock bundle, a disposable key and a
+new explicit `state_directory`. Never point it at an existing account store.
+Use the managed-process suite for account-free configured streaming checks.
+Real-account setup requires an explicit operator action and the independently
+qualified signed runtime; changing `mock=True` is not qualification.
 
-The public tools provide `skulk-cap keygen`, `sign`, `catalog`, `inspect`,
-`publish` and journaled host lifecycle commands. Use `--help` for each command;
-see the [SDK author guide](https://github.com/Foxlight-Foundation/skulk-capability-sdk/blob/main/docs/python-authoring.md)
-and this reference's [release inputs and commands](releasing.md). Use the
-`.author-venv/bin/skulk-cap` commands `sign`, `catalog` and `wheelhouse` in place
-of the older `capability-build`, `capability-catalog` and `capability-wheelhouse`
-entry points. Declare a new publisher identity and keep its private key outside
-all release/feed inputs. Public package access grants no host or publisher trust.
-Those released legacy commands do not enable signing this branch's native
-candidate or its prerelease runtime lock.
-
-The mock has a distinct bundle and callable IDs. Before enabling it on an
-isolated author host, set its `state_directory` configuration to a new absolute
-directory dedicated to that installation. It deliberately refuses a missing
-explicit mock state directory. Never point it at an existing account store or
-install it on a shared production fleet. Source `run/watch` in tools 0.1.0 is a
-unary harness without configuration injection; use the explicit managed process
-suite for this configured streaming reference rather than launching the live
-profile with default account-state paths.
-
-Installing requires a compatible dev host, explicit publisher trust, reviewed
-permissions and normal management authority. Signed bytes, successful staging,
-child readiness, actual calls and update/rollback are separate checks. Existing
-first-party distribution uses an additional private maintainer source lock for
-its protected signing job; public contributors do not need that path.
+Installing requires a compatible host, explicit publisher trust, reviewed
+permissions and normal management authority. Existing first-party distribution
+also uses a protected maintainer source lock and signing gate; contributors do
+not need private repository access for the workflow above. See
+[release inputs](releasing.md) and [native setup](native-setup.md) for the issued
+release's separate maintainer and operator paths.
