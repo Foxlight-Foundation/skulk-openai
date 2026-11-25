@@ -1,24 +1,25 @@
 # SDK1 coordinated-release candidate
 
-This initiative's `0.7.0` source candidate adopts the SDK1 candidate packages.
+This initiative's `0.7.0` source candidate selects the published SDK 1.0.1 packages.
 It does not replace the signed `0.6.3` Store preview or promote Skulk to its
 release branch. Routing is deferred until after the coordinated release.
 
 | Input | Candidate |
 | --- | --- |
-| Public Python SDK | `0.5.16rc1` |
-| Public author CLI | `0.2.0rc4` |
-| Compiled capability kernel | `0.7.0rc7` |
-| Separately installed owner runtime | `0.18.0rc8` |
+| Public Python SDK | `1.0.1` |
+| Public author CLI | `0.2.0` |
+| Compiled capability kernel | `0.7.0` |
+| Separately installed owner runtime | `0.18.1` |
 | Application source and native manifest | `0.7.0` |
 
 The application version uses the compiled manifest validator's supported version
 syntax. It identifies this source candidate; it is not evidence of publication.
-SDK1 final versioning follows acceptance by all capability consumers.
+The SDK packages are published. This application remains a coordinated-release
+candidate until its matching installed-package qualification and publication pass.
 
 ## What changes
 
-The native entrypoint and both author locks select the public candidate SDK and
+The native entrypoint and both author locks select the published public SDK and
 kernel. Authoring uses the public CLI without installing Core or the owner into
 the author environment. The optional `runtime` dependency group selects the
 owner separately. No provider behavior, account connection, management UI or
@@ -62,7 +63,7 @@ store or contact OpenAI. Real-account model, compaction and speech observations
 in the [0.6.3 record](native-qualification-0.6.3.md) remain scoped to its recorded
 implementation; this dependency update does not rerun those experiments.
 
-Publication, stable SDK1 packaging, coordinated Skulk admission and refreshed
+Application publication, coordinated Skulk admission and refreshed
 operator documentation remain separate release steps. The candidate must retain
 account state and current replay/CAS history during update and rollback;
 restoring an older journal is not a valid rollback test.

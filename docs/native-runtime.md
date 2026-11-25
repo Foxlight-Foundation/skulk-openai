@@ -7,7 +7,7 @@ Downloading wheels grants no publisher trust, account access or caller authority
 For the initiative's `0.7.0` SDK1 source candidate, use the
 [candidate dependency and acceptance record](sdk1-adoption.md). The recipes on
 this page describe the issued `0.6.3` closure and cannot satisfy the candidate's
-new exact SDK/kernel requirements. The public SDK's generic owner `0.18.0rc8`
+new exact SDK/kernel requirements. The public SDK's generic owner `0.18.1`
 recipe also needs Integrator's additional runtime dependencies, including
 PyJWT; assemble the complete candidate closure from its frozen lock and native
 spec rather than treating that generic recipe as an Integrator release.
