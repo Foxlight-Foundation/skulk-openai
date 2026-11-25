@@ -5,9 +5,9 @@ account, private repository, provider account, model, GPU or fleet lease is
 needed for the steps below. This application remains Apache-2.0; the separately
 licensed owner runtime stays outside its source bundle and author environment.
 
-The initiative's `0.7.0` source candidate selects SDK `0.5.16rc1`, tools
-`0.2.0rc4` and compiled kernel `0.7.0rc7`. Its separately selected runtime owner
-is `0.18.0rc8`. See [SDK1 adoption](sdk1-adoption.md) for scope and acceptance
+The initiative's `0.7.0` source candidate selects SDK `1.0.1`, tools
+`0.2.0` and compiled kernel `0.7.0`. Its separately selected runtime owner
+is `0.18.1`. See [SDK1 adoption](sdk1-adoption.md) for scope and acceptance
 boundaries. These source inputs do not reissue the signed `0.6.3` Store preview.
 Supported native targets are macOS ARM64 and glibc Linux x86_64/ARM64, with
 glibc 2.34 or later on Linux.
@@ -85,10 +85,10 @@ Generating its manifest does not connect an account or grant execution.
 
 ## Explicit native runtime inputs
 
-The [SDK/tools candidate release](https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/tag/v0.5.16-rc.1)
+The [published SDK/tools release](https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/tag/v1.0.1)
 provides native runtime-five/catalog-four authoring. The SDK wheel SHA-256 is
-`f61591b608e2f3991ad4052ce607ef57af9384c880b81472dc1fc3b897e4a15f`.
-Read its [native publishing contract](https://github.com/Foxlight-Foundation/skulk-capability-sdk/blob/51cfa35e1ec7546163b0c9e2af0f546886c8893d/docs/native-publishing.md).
+`df30b89d8fa8588d94b12af03894dcfe3845acd2397b371194481801d9e46c0a`.
+Read its [native publishing contract](https://github.com/Foxlight-Foundation/skulk-capability-sdk/blob/fe6e0f8737ae343769b8cfc0a67ab112b9efac52/docs/native-publishing.md).
 
 For a candidate runtime wheelhouse, select the owner root and this application's
 additional requirements from its committed lock:
@@ -113,7 +113,8 @@ release policy. `skulk-cap sign --help`, `catalog --help`, `runtime --help` and
 `inspect --help` describe their separate inputs. Source bytes, wheel acquisition,
 signatures, installer admission, child readiness and successful calls are
 independent checks. Anonymous package access grants no publisher trust or host
-authority. The candidate is not a stable SDK1 or Skulk release.
+authority. Published SDK packages do not imply a released Integrator or compatible
+stable Skulk host.
 
 For an author experiment use the distinct mock bundle, a disposable key and a
 new explicit `state_directory`. Never point it at an existing account store.

@@ -108,7 +108,7 @@ async def application_inputs(
 
 def create_app(*, mock: bool = False) -> CapabilityApp:
     """Create explicit native handlers; no account or state is opened before setup."""
-    if version("skulk-capability-kernel") != "0.7.0rc7":
+    if version("skulk-capability-kernel") != "0.7.0":
         raise ValueError("native Integrator requires its explicit stream cohort")
     bindings = native_bindings(mock=mock)
     chat = next(

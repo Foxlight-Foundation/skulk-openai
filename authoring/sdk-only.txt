@@ -1,1 +1,1 @@
-skulk-capability-sdk @ https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v0.5.16-rc.1/skulk_capability_sdk-0.5.16rc1-py3-none-any.whl --hash=sha256:f61591b608e2f3991ad4052ce607ef57af9384c880b81472dc1fc3b897e4a15f
+skulk-capability-sdk @ https://github.com/Foxlight-Foundation/skulk-capability-sdk/releases/download/v1.0.1/skulk_capability_sdk-1.0.1-py3-none-any.whl --hash=sha256:df30b89d8fa8588d94b12af03894dcfe3845acd2397b371194481801d9e46c0a
