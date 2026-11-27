@@ -1,6 +1,6 @@
 # SDK1 coordinated-release candidate
 
-This initiative's `0.7.0` source candidate selects the published SDK 1.0.1 packages.
+This initiative's `0.7.1` source candidate selects the published SDK 1.0.1 packages.
 It does not replace the signed `0.6.3` Store preview or promote Skulk to its
 release branch. Routing is deferred until after the coordinated release.
 
@@ -10,7 +10,7 @@ release branch. Routing is deferred until after the coordinated release.
 | Public author CLI | `0.2.0` |
 | Compiled capability kernel | `0.7.0` |
 | Separately installed owner runtime | `0.18.1` |
-| Application source and native manifest | `0.7.0` |
+| Application source and native manifest | `0.7.1` |
 
 The application version uses the compiled manifest validator's supported version
 syntax. It identifies this source candidate; it is not evidence of publication.
@@ -67,3 +67,15 @@ Application publication, coordinated Skulk admission and refreshed
 operator documentation remain separate release steps. The candidate must retain
 account state and current replay/CAS history during update and rollback;
 restoring an older journal is not a valid rollback test.
+
+## Recovery after an interrupted write
+
+This candidate lets SQLite recover a hot rollback journal before native store
+identity or offline snapshot inspection. Healthy reads stay read-only. Recovery
+requires an existing private database, a safe rollback sidecar and both stable
+application/continuation fences. It does not create missing stores, change the
+original proof target, rotate account authority or reset committed replay and
+checkpoint history. Partial state-transfer guards still prevent serving.
+
+The application advances to 0.7.1; SDK 1.0.1, tools 0.2.0, kernel 0.7.0 and owner
+0.18.1 remain unchanged. The unpublished signed 0.7.0 candidate is not rewritten.

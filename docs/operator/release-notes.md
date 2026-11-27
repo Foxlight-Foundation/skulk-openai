@@ -3,6 +3,14 @@ title: Release notes
 sidebar_position: 11
 ---
 
+## SDK1 candidate 0.7.1 (unpublished)
+
+- Uses public SDK 1.0.1 and kernel 0.7.0 with the separately installed owner 0.18.1.
+- Recovers interrupted SQLite writes before native identity checks or offline
+  backups, preserving committed account, replay and encrypted continuation state.
+- Requires the matching experimental SDK1 host. This source candidate does not
+  replace the signed 0.6.3 Store preview or establish stable Skulk support.
+
 ## Native preview 0.6.3
 
 - Accepts validated compaction-progress metadata for a pending compaction item under an explicit profile. It does not turn that progress into public model output or a committed checkpoint.

@@ -12,7 +12,7 @@ composition with mounted speech. See the exact
 [qualification scope and limits](docs/native-qualification-0.6.3.md).
 Automatic compaction remains opt-in; compatible experimental Core is required.
 
-The initiative branch now prepares a separate `0.7.0`
+The initiative branch now prepares a separate `0.7.1`
 [SDK1 coordinated-release candidate](docs/sdk1-adoption.md). Its SDK/kernel and
 author locks differ from the issued preview. Source checks, installed acceptance
 and publication are separate gates; use the `0.6.3` operator guide for the issued

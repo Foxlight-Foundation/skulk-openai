@@ -24,6 +24,7 @@ from skulk_inference_reference.input_body import (
     StreamedProof,
     encode_body,
 )
+from skulk_openai.credentials import CredentialStore
 from skulk_openai.native_contracts import (
     build_native_manifest,
     native_bindings,
@@ -34,6 +35,7 @@ from skulk_openai.settings import IntegrationSettings, account_binding
 from skulk_openai.state_transfer import read_native_initialization
 from tests.test_admission import invocation, prepared
 from tests.test_input_body import payload
+from tests.test_state_hot_journal import crash_write, seed_pages
 from tests_managed.native_child import NATIVE, NativeChild, native_child, output
 
 pytestmark = pytest.mark.managed
@@ -153,6 +155,24 @@ async def test_native_fresh_install_reaches_disconnected_ui_without_adoption(
                 assert state["inference_enabled"] is False
             assert (await read(child, 0))["offers"] == []
             assert (await read(child, 2))["requests_started"] == 0
+
+
+async def test_native_process_recovers_a_hot_journal_before_handshake(
+    tmp_path: Path,
+) -> None:
+    """An interrupted owned write does not strand the real SDK child at startup."""
+    root = tmp_path / "state"
+    async with native_child(root, enabled=False, fresh=True) as child:
+        assert (await child.health())["ready"] is True
+    record = (root / "native-initialization.json").read_bytes()
+    seed_pages(CredentialStore(root))
+    crash_write(root)
+    async with native_child(root, enabled=False, fresh=True) as child:
+        assert (await child.health())["ready"] is True
+        status = await read(child, 2)
+        assert status["connection"] == "disconnected"
+        assert status["requests_started"] == 0
+        assert (root / "native-initialization.json").read_bytes() == record
 
 
 async def test_native_signed_generation_and_replay_fence(tmp_path: Path) -> None:
