@@ -9,7 +9,7 @@ You do not need to create an OpenAI API key for this connection. OpenAI determin
 
 ## 1 Install from the Store
 
-1. Open **Plugins** in Skulk, then **Browse**.
+1. Open **Plugins** in Skulk. If it offers local manager setup, complete that setup and wait for its ready confirmation, then open **Browse**.
 2. Find **Skulk OpenAI Integrator** and review the release and permissions.
 3. Install the signed native release for your platform.
 4. Open its configuration. Choose a **new, private state directory** belonging to your OS user. Keep that directory for future updates.
@@ -27,7 +27,7 @@ If the configuration editor asks for JSON, this is a minimal application configu
 
 Use a new or empty directory. Do not point a new installation at another application's account state. The host checks the path and initializes the installed application there.
 
-**You should see:** a healthy installed capability and a link to its management page. Open **Configure** to manage the integration. A fresh installation starts disconnected.
+**You should see:** a healthy installed capability. In its **Browse** card, choose **Open → management**; the capability’s topology action also opens its management page. **Configure** edits the installed node’s configuration, including its state directory; it is a different screen. A fresh installation starts disconnected.
 
 ## 2 Connect your ChatGPT account
 

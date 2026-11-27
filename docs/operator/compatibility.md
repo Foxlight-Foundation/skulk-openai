@@ -7,11 +7,43 @@ sidebar_position: 10
 
 This manual describes the signed native **Integrator 0.6.3 preview**. Packages are published for macOS ARM64 and glibc Linux x86_64/ARM64. The Linux native runtime requires glibc 2.34 or newer.
 
-The compatible experimental Core source is `b203d3aea1750757046c50adce359511cab59691`, retained on the native owner/Core initiative. It is not included in current stable Skulk or current `dev`. A `2.0.3` version string alone does not establish compatibility.
+The compatible experimental Core source is `b203d3aea1750757046c50adce359511cab59691`, retained on the native owner/Core initiative. Use that exact preview cohort; this manual does not establish compatibility with stable Skulk. A `2.0.3` version string alone does not establish compatibility.
 
 The issued native runtime uses owner `0.18.0rc3`, runtime SDK `0.5.10rc1` and kernel `0.7.0rc4`. Use the compatible signed closure; do not assemble an arbitrary mix of similarly numbered wheels. The public author SDK/tools release is a separate developer input.
 
 Until a normal Skulk release includes the required host, follow the preview's [published runtime and host requirements](https://developers.foxlight.ai/build/sdk/native-preview/). Do not replace a working stable installation solely because an Integrator package is visible in the Store.
+
+## SDK1 preview 0.7.1
+
+The SDK1 preview uses public **SDK 1.0.1**, compiled **kernel 0.7.0** and the
+separately installed **owner 0.18.1**. These replace the older runtime closure
+above as a coordinated set. Do not mix the old owner or SDK into this package.
+The signed Store listing determines live availability; a signed build and a
+Store upload are separate release steps.
+
+Its qualified Core source is `1574a38dce323d6a5ca4a79c9bbc0ad7eb9fbf25`, accepted
+through [Core1446](https://github.com/Foxlight-Foundation/Skulk/pull/1446) on the
+SDK1 initiative. A subsequent Windows-manual-only merge does not change those
+runtime bytes. Skulk main has not been promoted. The SDK1 package requires this
+matching host, even if an unrelated build reports the same `2.0.3` version.
+
+On the installed Linux ARM64 packaged host, 0.7.1 passes real Chat continuation,
+API function-call/result, PNG input and strict JSON-schema checks. After an
+interrupted SQLite write, normal service startup recovers the journal, preserves
+the encrypted checkpoint and consumed nonces, and recovers its receipt with
+zero new generation submissions. Existing account, model settings and native
+initialization survive; no account reconnection or old-backup restore is used.
+A new API client sees no native models until its two exact discovery/generation
+grants are approved. Both temporary test clients are revoked afterward.
+
+Three-platform account-free package checks cover install, update, restart,
+rollback and the actual disconnected app’s interrupted-write recovery. These
+checks do not imply real-account or OS-service qualification on every platform.
+Broader model, effective compaction and mounted-speech results below retain their
+0.6.3 scope; they were not repeated as a full 0.7.1 matrix. Windows management
+nodes do not establish Windows native capability hosting. See the
+[0.7.1 qualification record](https://github.com/Foxlight-Foundation/skulk-openai/blob/initiative/openai-provider/docs/native-qualification-0.7.1.md)
+for the exact inputs and limits.
 
 ## Features in this preview
 

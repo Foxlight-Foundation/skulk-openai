@@ -8,7 +8,7 @@ Use OpenAI models in Skulk Chat and applications connected to Skulk's unified AP
 
 **Start here:** [Install and connect](getting-started.md). Already connected? [Choose models and defaults](settings.md), [use Chat](chat.md), or [connect another application](api.md).
 
-> **Native preview 0.6.3.** This version requires a compatible experimental Skulk host. The current stable Skulk release does not include that host. Check [compatibility](compatibility.md) before installing. A Skulk version number alone is not enough.
+> **Check your release channel.** The original native preview is 0.6.3; the SDK1 preview is 0.7.1. They require their matching experimental Skulk hosts. This is not a stable Skulk release. Check [compatibility](compatibility.md) and the Store listing before installing; a version number alone is not enough.
 
 [![The Integrator Connection page showing a connected account and available models](images/connection.jpg)](images/connection.jpg)
 

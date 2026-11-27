@@ -9,7 +9,7 @@ Start at the step that failed. **Connected**, **model enabled**, **gateway appro
 | --- | --- |
 | No compatible Integrator release | Check platform and the exact host cohort in [Compatibility](compatibility.md). Stable Skulk is not yet the native preview host. |
 | Sign-in finished but plan access is unavailable | Complete the provider's plan-consent flow; use Reconnect when requested. Identity sign-in alone does not grant model usage. |
-| Old “continue” message remains | Return to Connection and allow the page to refresh. Reload a stale page; check the current management link from Plugins after a service restart. |
+| Old “continue” message remains | Return to Connection and allow the page to refresh. Reload a stale page; use the current Open management action from Plugins Browse or the topology after a service restart. |
 | Diagnostics is blocked | Check Pause requests is off, an enabled default model is saved, and Usage policy is Follow ChatGPT app settings. |
 | No models or stale catalog | Wait for automatic refresh or choose Refresh catalog. Check connection/plan access and saved model selection. |
 | Chat/API says access denied | Check gateway delegation and the exact authenticated caller's permissions in Skulk Inference access. |
@@ -44,7 +44,7 @@ A fresh, deliberate diagnostic is different from automatically resubmitting the 
 
 ## An update or restart changed access
 
-Keep the existing private state directory and use the normal Store update. Open the current management link from Plugins; a previous temporary UI port can stop responding after restart. Confirm account connection, saved models, gateway approval and current caller permissions. Do not delete state or edit security databases to clear an error.
+Keep the existing private state directory and use the normal Store update. Open the current management action from Plugins Browse or the topology; a previous temporary UI port can stop responding after restart. Confirm account connection, saved models, gateway approval and current caller permissions. Do not delete state or edit security databases to clear an error.
 
 ## Startup after an unclean shutdown
 
@@ -52,8 +52,9 @@ Preserve the private state directory and its SQLite sidecars. Do not delete a
 rollback journal to clear a startup error: it may be needed to recover the last
 committed state. Stop the capability before offline inspection or backup.
 
-The unpublished SDK1 0.7.1 candidate performs SQLite's normal recovery under
-stable serving fences before checking the original store identity. The issued
+The SDK1 0.7.1 preview performs SQLite's normal recovery under stable serving
+fences before checking the original store identity. This passes on the exact
+production-signed installed package with account and encrypted checkpoint state. The issued
 0.6.3 preview can remain at Starting when this recovery is required; preserve
 its files for offline assistance. Corrupt databases, unsafe paths and partial
 state transfers remain separate failures; this recovery does not reset them.
