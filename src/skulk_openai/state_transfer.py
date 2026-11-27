@@ -16,7 +16,7 @@ import sqlite3
 import stat
 import tempfile
 from collections.abc import Generator
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, closing, contextmanager
 from pathlib import Path
 from typing import Literal, final
 
@@ -345,18 +345,72 @@ def _file_digest(path: Path) -> str:
     return digest.hexdigest()
 
 
-def open_existing_state(root: Path) -> CredentialStore:
-    """Refuse absent or foreign journals before any constructor can initialize them."""
+def _existing_database(root: Path) -> Path:
+    """Require an existing private database and safe rollback sidecar."""
     _protected_directory(root)
-    path = root / "credentials.sqlite3"
-    metadata = path.lstat()
-    if (
-        not stat.S_ISREG(metadata.st_mode)
-        or metadata.st_uid != os.geteuid()
-        or metadata.st_mode & 0o077
-    ):
+    pending = root / "state-transfer.pending"
+    if pending.exists() or pending.is_symlink():
         raise AuthFailure("credentials_unavailable")
-    with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=3) as connection:
+    path = root / "credentials.sqlite3"
+    for candidate in (path, root / "credentials.sqlite3-journal"):
+        try:
+            metadata = candidate.lstat()
+        except FileNotFoundError:
+            if candidate == path:
+                raise
+            continue
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_uid != os.geteuid()
+            or metadata.st_mode & 0o077
+        ):
+            raise AuthFailure("credentials_unavailable")
+    return path
+
+
+@contextmanager
+def _read_existing_database(root: Path) -> Generator[sqlite3.Connection]:
+    """Read existing state, permitting only fenced SQLite crash recovery.
+
+    Healthy reads remain read-only. A hot rollback journal must be recovered by
+    SQLite before it can read any page; reopening that existing private database
+    read-write permits this recovery without creating a missing store. Serving
+    and continuation fences remain held through the caller's identity checks.
+    """
+    path = _existing_database(root)
+    with ExitStack() as resources:
+        connection = resources.enter_context(
+            closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=3))
+        )
+        try:
+            connection.execute("PRAGMA schema_version").fetchone()
+        except sqlite3.OperationalError as error:
+            if (
+                getattr(error, "sqlite_errorcode", None)
+                != sqlite3.SQLITE_READONLY_ROLLBACK
+            ):
+                raise
+            connection.close()
+            resources.enter_context(application_fence(root))
+            resources.enter_context(_lock(root / "continuation-worker.lock"))
+            path = _existing_database(root)
+            # Never remove the journal ourselves or initialize tables. SQLite
+            # restores the last committed pages; account/replay state is retained.
+            with closing(
+                sqlite3.connect(path.as_uri() + "?mode=rw", uri=True, timeout=3)
+            ) as recovery:
+                recovery.execute("PRAGMA schema_version").fetchone()
+            connection = resources.enter_context(
+                closing(
+                    sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=3)
+                )
+            )
+        yield connection
+
+
+def open_existing_state(root: Path) -> CredentialStore:
+    """Validate existing state, recovering an interrupted write without resetting it."""
+    with _read_existing_database(root) as connection:
         for table, expected in (
             ("metadata", ("key", "value")),
             (
@@ -463,20 +517,12 @@ def enroll_native(
 
 
 def read_native_adoption(root: Path) -> NativeAdoption:
-    """Read a private receipt and match its original store identity without writes."""
+    """Match an adoption receipt, recovering interrupted writes under stable fences."""
     _protected_directory(root)
     result = NativeAdoption.model_validate_json(
         _private_read(root / "native-adoption.json", 32768)
     )
-    path = root / "credentials.sqlite3"
-    metadata = path.lstat()
-    if (
-        not stat.S_ISREG(metadata.st_mode)
-        or metadata.st_uid != os.geteuid()
-        or metadata.st_mode & 0o077
-    ):
-        raise AuthFailure("credentials_unavailable")
-    with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=3) as connection:
+    with _read_existing_database(root) as connection:
         row = connection.execute(
             "SELECT value FROM metadata WHERE key='host_id'"
         ).fetchone()
@@ -678,7 +724,7 @@ def initialize_native_state(
 
 
 def read_native_initialization(root: Path) -> NativeInitialization:
-    """Verify the private receipt and original journal identity without writing."""
+    """Match a fresh receipt, recovering interrupted writes under stable fences."""
     _protected_directory(root)
     if (root / _INITIALIZATION_PENDING).exists() or (
         root / _INITIALIZATION_PENDING
@@ -687,15 +733,7 @@ def read_native_initialization(root: Path) -> NativeInitialization:
     receipt = NativeInitialization.model_validate_json(
         _private_read(root / _NATIVE_INITIALIZATION, 32768)
     )
-    path = root / "credentials.sqlite3"
-    metadata = path.lstat()
-    if (
-        not stat.S_ISREG(metadata.st_mode)
-        or metadata.st_uid != os.geteuid()
-        or metadata.st_mode & 0o077
-    ):
-        raise AuthFailure("credentials_unavailable")
-    with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=3) as connection:
+    with _read_existing_database(root) as connection:
         row = connection.execute(
             "SELECT value FROM metadata WHERE key='host_id'"
         ).fetchone()

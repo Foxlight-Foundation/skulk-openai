@@ -1,7 +1,7 @@
 # Native managed entrypoint
 
 The experimental `skulk-openai-native` entrypoint consumes public SDK
-**1.0.1** and native **0.7.0** in the `0.7.0` source candidate.
+**1.0.1** and native **0.7.0** in the `0.7.1` source candidate.
 See the [SDK1 adoption scope](sdk1-adoption.md); the issued `0.6.3` runtime remains
 on its independently recorded dependency closure. OAuth, sessions, model catalog, settings,
 provider requests and encrypted continuation history remain capability-owned.

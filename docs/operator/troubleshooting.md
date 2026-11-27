@@ -45,3 +45,15 @@ A fresh, deliberate diagnostic is different from automatically resubmitting the 
 ## An update or restart changed access
 
 Keep the existing private state directory and use the normal Store update. Open the current management link from Plugins; a previous temporary UI port can stop responding after restart. Confirm account connection, saved models, gateway approval and current caller permissions. Do not delete state or edit security databases to clear an error.
+
+## Startup after an unclean shutdown
+
+Preserve the private state directory and its SQLite sidecars. Do not delete a
+rollback journal to clear a startup error: it may be needed to recover the last
+committed state. Stop the capability before offline inspection or backup.
+
+The unpublished SDK1 0.7.1 candidate performs SQLite's normal recovery under
+stable serving fences before checking the original store identity. The issued
+0.6.3 preview can remain at Starting when this recovery is required; preserve
+its files for offline assistance. Corrupt databases, unsafe paths and partial
+state transfers remain separate failures; this recovery does not reset them.
