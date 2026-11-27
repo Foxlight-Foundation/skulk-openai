@@ -3,13 +3,24 @@ title: Release notes
 sidebar_position: 11
 ---
 
-## SDK1 candidate 0.7.1 (unpublished)
+## SDK1 preview 0.7.1
 
 - Uses public SDK 1.0.1 and kernel 0.7.0 with the separately installed owner 0.18.1.
 - Recovers interrupted SQLite writes before native identity checks or offline
   backups, preserving committed account, replay and encrypted continuation state.
-- Requires the matching experimental SDK1 host. This source candidate does not
-  replace the signed 0.6.3 Store preview or establish stable Skulk support.
+- Production signing and independent artifact verification pass for all three
+  platform packages. Check the Store listing for publication availability.
+- The installed Linux ARM64 packaged host passes real Chat/API, tools, image,
+  schema and continuation checks. Normal cold startup recovers a genuine hot
+  journal while retaining encrypted checkpoints and replay history; receipt
+  recovery submits no new generation.
+- Requires the matching experimental SDK1 host. It does not establish stable
+  Skulk support; the original 0.6.3 preview retains its separate runtime closure.
+
+See [Compatibility](compatibility.md#sdk1-preview-071) for requirements and the
+implementation-bound qualification record. Existing illustrated UI guides apply;
+the screenshots are real captures from the original native preview, rather than
+new 0.7.1 model qualification evidence.
 
 ## Native preview 0.6.3
 
